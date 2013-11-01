@@ -8,6 +8,7 @@ import os, logging
 from urlparse import urlparse
 
 TLDS_CACHE_KEY = 'TDLS_CACHE_KEY'
+EXCLUSION_CACHE_KEY = 'EXCLUSION_CACHE_KEY'
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,16 @@ def load_tlds(filename, force_reload=False):
     else:
         logger.debug('TLD list already in cache...')
     return tlds
+
+def load_exclusions(filename, force_reload=False):
+    exclusions = cache.get(EXCLUSION_CACHE_KEY, None)
+    if exclusions is None or force_reload:
+        logger.debug('Reloading domain exclusion list...')
+        exf = open(filename)
+        exclusions = [line.strip() for line in exf if line[0] not in '\n']
+        cache.set(EXCLUSION_CACHE_KEY, exclusions, timeout=None)
+        logger.debug('Finished reloading exclusion list...')
+    return exclusions
 
 def remove_subdomains(url, tlds):
     url_elements = urlparse(url)[1].split('.')
@@ -50,12 +61,21 @@ def remove_subdomains(url, tlds):
 
 def index(request):
     tlds = load_tlds("effective_tld_names.dat.txt")
+    exclusions = load_exclusions("exclusion_domains.txt")
     domain_list = set()
+    excluded_domains = set()
+    urlc = 0
     if request.method == 'POST':
         form = URLFileForm(request.POST, request.FILES)
         if form.is_valid():
-            urls = request.FILES['file'].read().split('\n')
-            for url in urls:
-                domain = remove_subdomains(url, tlds)
-                domain_list.add(domain)
-    return render(request, 'main/index.html', {'domain_list' : sorted(domain_list), 'form' : URLFileForm(request.POST), 'cwd' : os.getcwd()})
+            for url in request.FILES['file']:
+                if url[0] in '/\n':
+                    continue
+                urlc += 1
+                domain = remove_subdomains(url.strip(), tlds)
+                if domain not in exclusions:
+                    domain_list.add(domain)
+                else:
+                    excluded_domains.add(domain)
+            logger.debug('Excluded (%d) domains: [%s]' % (len(excluded_domains), ', '.join(excluded_domains)))
+    return render(request, 'main/index.html', {'domain_list' : sorted(domain_list), 'form' : URLFileForm(request.POST), 'urlc' : urlc, 'excluded_domains': excluded_domains,})

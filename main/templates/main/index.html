@@ -41,17 +41,18 @@
       </div>
 
       {% if domain_list|length > 0 %}
-        <p>{{domain_list|length}} domain(s) were found:</p>
-        <ul class="domainlist">
+        <p>A total of {{urlc}} URL(s) were processed.  To upload another file <a href="#upload_box">click here</a>.</p>
+        <p>{{domain_list|length}} unique domain(s) were found [<b>Note:</b> {{excluded_domains|length}} domain(s) were <a href="javascript:list_exclusions()">excluded</a>]:</p>
+        <ol class="domainlist">
         {% for domain in domain_list %}
           <li>{{domain}}<br /></li>
         {% endfor %}
-        </ul>
+        </ol>
       {% endif %}
 
-      <div class="jumbotron">
+      <div class="jumbotron" id="upload_box">
         <h1>Know the Web</h1>
-        <p class="lead">Want to know about a specific domain?  Does it get traffic?  Who visits it?  Is it available and how much does it cost?  Just upload a file with a list of domains in the box below.</p>
+        <p class="lead">Want to know about a specific domain?  Does it get traffic?  Who visits it?  Is it available and how much does it cost?  Just <b>upload a file</b> with a list of domains in the box below.</p>
         <p class="normal">
         <form name='upload' action="/" method="post" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>{% csrf_token %}
           <p>{{ form.file }}</p>
@@ -98,6 +99,13 @@
       function submit_upload() {
         // alert('Test.');
         $("form[name='upload']").submit();
+      }
+      function list_exclusions() {
+        str = 'Excluded domains:\n';
+        {% for domain in excluded_domains %}
+          str += '  {{domain}}\n';
+        {% endfor %}
+        alert(str);
       }
     </script>
   </body>

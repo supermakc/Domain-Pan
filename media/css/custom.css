@@ -73,6 +73,9 @@ input[type="file"] {
 .domainlist li {
     color: #666;
     font-style: italic;
+}
+
+ul.domainlist li {
     list-style: none;
 }
 
