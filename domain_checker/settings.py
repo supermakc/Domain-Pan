@@ -147,7 +147,12 @@ LOGGING = {
             'level': 'ERROR',
             'filters': ['require_debug_false'],
             'class': 'django.utils.log.AdminEmailHandler'
-        }
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            #  'formatter': 'simple',
+        },
     },
     'loggers': {
         'django.request': {
@@ -155,5 +160,18 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': True,
         },
+        'main.views': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     }
 }
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake-1'
+    }
+}
+

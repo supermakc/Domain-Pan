@@ -1,20 +1,30 @@
 # Create your views here.
 from django.http import HttpResponse
 from django.shortcuts import render
-from urlparse import urlparse
+from django.core.cache import cache
 from forms import URLFileForm
 
-import os
+import os, logging
+from urlparse import urlparse
 
-def load_tlds(filename):
-    tldf = open(filename)
-    tlds = [line.strip() for line in tldf if line[0] not in "/\n"]
-    tldf.close()
+TLDS_CACHE_KEY = 'TDLS_CACHE_KEY'
+
+logger = logging.getLogger(__name__)
+
+def load_tlds(filename, force_reload=False):
+    tlds = cache.get(TLDS_CACHE_KEY, None)
+    if tlds is None or force_reload:
+        logger.debug('Reloading TLD list...')
+        tldf = open(filename)
+        tlds = [line.strip() for line in tldf if line[0] not in "/\n"]
+        tldf.close()
+        cache.set(TLDS_CACHE_KEY, tlds, timeout=None)
+        logger.debug('Finished reloading TLD list.')
+    else:
+        logger.debug('TLD list already in cache...')
     return tlds
 
-def get_domain(url):
-    tlds = load_tlds("effective_tld_names.dat.txt")
-
+def remove_subdomains(url, tlds):
     url_elements = urlparse(url)[1].split('.')
     # url_elements = ["abcde","co","uk"]
 
@@ -39,13 +49,13 @@ def get_domain(url):
 
 
 def index(request):
+    tlds = load_tlds("effective_tld_names.dat.txt")
     domain_list = set()
     if request.method == 'POST':
         form = URLFileForm(request.POST, request.FILES)
         if form.is_valid():
             urls = request.FILES['file'].read().split('\n')
             for url in urls:
-                # domain = urlparse(url).netloc
-                domain = get_domain(url)
+                domain = remove_subdomains(url, tlds)
                 domain_list.add(domain)
     return render(request, 'main/index.html', {'domain_list' : sorted(domain_list), 'form' : URLFileForm(request.POST), 'cwd' : os.getcwd()})
