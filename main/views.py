@@ -4,13 +4,14 @@ from django.shortcuts import render
 from django.core.cache import cache
 from forms import URLFileForm
 
-import os, logging
+import os, logging, re
 from urlparse import urlparse
 
 TLDS_CACHE_KEY = 'TDLS_CACHE_KEY'
 EXCLUSION_CACHE_KEY = 'EXCLUSION_CACHE_KEY'
 
 logger = logging.getLogger(__name__)
+schemecheck_re = re.compile(r'[^\.]*?//')
 
 def load_tlds(filename, force_reload=False):
     tlds = cache.get(TLDS_CACHE_KEY, None)
@@ -36,7 +37,12 @@ def load_exclusions(filename, force_reload=False):
     return exclusions
 
 def remove_subdomains(url, tlds):
-    url_elements = urlparse(url)[1].split('.')
+    # Checks for presence of // before domain (required by urlparse)
+    if schemecheck_re.match(url) == None:
+        url = '//'+url
+
+    url_elements = urlparse(url, scheme='http')[1].split('.')
+    logger.debug(urlparse(url).hostname)
     # url_elements = ["abcde","co","uk"]
 
     for i in range(-len(url_elements), 0):
@@ -72,6 +78,7 @@ def index(request):
                 if url[0] in '/\n':
                     continue
                 urlc += 1
+                logger.debug(url.strip())
                 domain = remove_subdomains(url.strip(), tlds)
                 if domain not in exclusions:
                     domain_list.add(domain)

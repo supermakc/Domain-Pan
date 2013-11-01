@@ -101,10 +101,14 @@
         $("form[name='upload']").submit();
       }
       function list_exclusions() {
-        str = 'Excluded domains:\n';
-        {% for domain in excluded_domains %}
-          str += '  {{domain}}\n';
-        {% endfor %}
+        {% if excluded_domains|length == 0 %}
+        str = 'No domains were excluded.'
+        {% else %}
+          str = 'Excluded domains:\n';
+          {% for domain in excluded_domains %}
+            str += '  {{domain}}\n';
+          {% endfor %}
+        {% endif %}
         alert(str);
       }
     </script>
