@@ -66,8 +66,9 @@ def remove_subdomains(url, tlds):
 
 
 def index(request):
-    tlds = load_tlds("effective_tld_names.dat.txt")
-    exclusions = load_exclusions("exclusion_domains.txt")
+    fdir = os.path.dirname(__file__)
+    tlds = load_tlds(os.path.join(fdir, "..", "effective_tld_names.dat.txt"))
+    exclusions = load_exclusions(os.path.join(fdir, "..", "exclusion_domains.txt"))
     domain_list = set()
     excluded_domains = set()
     urlc = 0
