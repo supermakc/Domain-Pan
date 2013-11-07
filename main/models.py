@@ -1,19 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 MAX_DOMAIN_LENGTH = 255
-
-# System users
-class User(models.Model):
-    username = models.CharField(max_length=100)
-    password_hash = models.CharField(max_length=100)
-    email = models.EmailField(max_length=100)
-    is_activated = models.BooleanField()
-    activation_key = models.CharField(max_length=100)
-    is_administrator = models.BooleanField()
-    name = models.CharField(max_length=100)
-    registration_date = models.DateTimeField(auto_now_add=True)
-    activation_expiry = models.DateTimeField()
-    activated_date = models.DateTimeField()
 
 # Top-level domains
 class TLD(models.Model):
