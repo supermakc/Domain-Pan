@@ -3,6 +3,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.core.cache import cache
 from forms import URLFileForm
+from models import TLD, ExcludedDomain
 
 import os, logging, re
 from urlparse import urlparse
@@ -13,6 +14,13 @@ EXCLUSION_CACHE_KEY = 'EXCLUSION_CACHE_KEY'
 logger = logging.getLogger(__name__)
 schemecheck_re = re.compile(r'[^\.]*?//')
 
+def load_tlds():
+    return [tld.domain for tld in TLD.objects.filter(included=True)]
+
+def load_exclusions():
+    return [exclusion.domain for exclusion in ExcludedDomain.objects.all()]
+
+"""
 def load_tlds(filename, force_reload=False):
     tlds = cache.get(TLDS_CACHE_KEY, None)
     if tlds is None or force_reload:
@@ -25,7 +33,9 @@ def load_tlds(filename, force_reload=False):
     else:
         logger.debug('TLD list already in cache...')
     return tlds
+"""
 
+"""
 def load_exclusions(filename, force_reload=False):
     exclusions = cache.get(EXCLUSION_CACHE_KEY, None)
     if exclusions is None or force_reload:
@@ -35,6 +45,7 @@ def load_exclusions(filename, force_reload=False):
         cache.set(EXCLUSION_CACHE_KEY, exclusions, timeout=None)
         logger.debug('Finished reloading exclusion list...')
     return exclusions
+"""
 
 def remove_subdomains(url, tlds):
     # Checks for presence of // before domain (required by urlparse)
@@ -42,7 +53,7 @@ def remove_subdomains(url, tlds):
         url = '//'+url
 
     url_elements = urlparse(url, scheme='http')[1].split('.')
-    logger.debug(urlparse(url).hostname)
+    # logger.debug(urlparse(url).hostname)
     # url_elements = ["abcde","co","uk"]
 
     for i in range(-len(url_elements), 0):
@@ -67,8 +78,8 @@ def remove_subdomains(url, tlds):
 
 def index(request):
     fdir = os.path.dirname(__file__)
-    tlds = load_tlds(os.path.join(fdir, "..", "tld_list.txt"))
-    exclusions = load_exclusions(os.path.join(fdir, "..", "exclusion_domains.txt"))
+    tlds = load_tlds()
+    exclusions = load_exclusions()
     domain_list = set()
     excluded_domains = set()
     urlc = 0
@@ -79,7 +90,7 @@ def index(request):
                 if url[0] in '/\n':
                     continue
                 urlc += 1
-                logger.debug(url.strip())
+                # logger.debug(url.strip())
                 domain = remove_subdomains(url.strip(), tlds)
                 if domain not in exclusions:
                     domain_list.add(domain)
