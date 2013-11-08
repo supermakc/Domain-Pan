@@ -52,11 +52,23 @@
 
       <div class="jumbotron" id="upload_box">
         <h1>Know the Web</h1>
-        <p class="lead">Want to know about a specific domain?  Does it get traffic?  Who visits it?  Is it available and how much does it cost?  Just <b>upload a file</b> with a list of domains in the box below.</p>
+        <p class="lead">Want to know about a specific domain?  Does it get traffic?  Who visits it?  Is it available and how much does it cost? <br /><b>Get started now!</b></p>
+        <!-- Just <b>upload a file</b> with a list of domains in the box below.</p>
+        -->
+        <p>
+          <button class="btn btn-primary btn-lg" data-toggle="modal" data-target="#signin">Sign up</button>
+          <button class="btn btn-primary btn-lg" data-toggle="modal" data-target="#login">Login</button>
+        </p>
+      </div>
+
+      <div class="row">
         <p class="normal">
+        <h2>Test file upload</h2>
         <form name='upload' action="/" method="post" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>{% csrf_token %}
           <p>{{ form.file }}</p>
-          <a class="btn btn-lg btn-success" href="javascript:submit_upload()" role="button">Upload</a></p>
+          <p class="text-center">
+            <a class="btn btn-lg btn-success" href="javascript:submit_upload()" role="button">Upload</a>
+          </p>
         </form>
         </p>
       </div>
@@ -91,10 +103,44 @@
 
     </div> <!-- /container -->
 
+    <div class="modal fade" id="signin" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1>Signup</h1>
+          </div>
+          <div class="modal-body">
+            <p>To be implemented.</p>
+          </div>
+          <div class="modal-footer">
+            <a class="btn btn-default" data-dismiss="modal">Cancel</a>
+            <a class="btn btn-primary">Signup</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="login" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1>Login</h1>
+          </div>
+          <div class="modal-body">
+            <b>To be implemented.</p>
+          </div>
+          <div class="modal-footer">
+            <a class="btn btn-default" data-dismiss="modal">Cancel</a>
+            <a class="btn btn-primary">Login</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://code.jquery.com/jquery.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="js/bootstrap.min.js"></script>
+    <script src="js/bootstrap.js"></script>
     <script type="text/javascript">
       function submit_upload() {
         // alert('Test.');
