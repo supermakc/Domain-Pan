@@ -20,33 +20,6 @@ def load_tlds():
 def load_exclusions():
     return [exclusion.domain for exclusion in ExcludedDomain.objects.all()]
 
-"""
-def load_tlds(filename, force_reload=False):
-    tlds = cache.get(TLDS_CACHE_KEY, None)
-    if tlds is None or force_reload:
-        logger.debug('Reloading TLD list...')
-        tldf = open(filename)
-        tlds = [line.strip() for line in tldf if line[0] not in "/\n"]
-        tldf.close()
-        cache.set(TLDS_CACHE_KEY, tlds, timeout=None)
-        logger.debug('Finished reloading TLD list.')
-    else:
-        logger.debug('TLD list already in cache...')
-    return tlds
-"""
-
-"""
-def load_exclusions(filename, force_reload=False):
-    exclusions = cache.get(EXCLUSION_CACHE_KEY, None)
-    if exclusions is None or force_reload:
-        logger.debug('Reloading domain exclusion list...')
-        exf = open(filename)
-        exclusions = [line.strip() for line in exf if line[0] not in '\n']
-        cache.set(EXCLUSION_CACHE_KEY, exclusions, timeout=None)
-        logger.debug('Finished reloading exclusion list...')
-    return exclusions
-"""
-
 def remove_subdomains(url, tlds):
     # Checks for presence of // before domain (required by urlparse)
     if schemecheck_re.match(url) == None:
