@@ -73,16 +73,11 @@ body {
 }
 */
 
+/*
 input[type="file"] {
-    border: 1px solid black;
-    background-color: white;
-    min-width: 100%;
-    padding: 2px;
-    color: #888;
     font-style: italic;
-    font-weight: normal;
-    text-align: center;
 }
+*/
 
 .domainlist li {
     color: #666;
@@ -94,21 +89,27 @@ ul.domainlist li {
 }
 
 /* Responsive: Portrait tablets and up */
+/*
 @media screen and (min-width: 768px) {
   /* Remove the padding we set earlier */
+  /*
   .header,
   .marketing,
   .footer {
     padding-left: 0;
     padding-right: 0;
   }
+  */
   /* Space out the masthead */
+  /*
   .header {
     margin-bottom: 30px;
   }
+  */
   /* Remove the bottom border on the jumbotron for visual effect */
+  /*
   .jumbotron {
     border-bottom: 0;
   }
 }
-
+*/
