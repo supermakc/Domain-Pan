@@ -10,4 +10,6 @@ urlpatterns = patterns('',
     url(r'change_details$', views.change_details, name='change_details'),
     url(r'change_password$', views.change_password, name='change_password'),
     url(r'change_email$', views.change_email, name='change_email'),
+    url(r'delete_project$', views.delete_project, name='delete_project'),
+    url(r'update_admin$', views.update_admin, name='update_admin'),
     url(r'upload_project$', views.upload_project, name='upload_project'))

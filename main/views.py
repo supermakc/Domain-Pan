@@ -5,8 +5,9 @@ from django.core.cache import cache
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from forms import URLFileForm
-from models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain
+from models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain
 
 import os, logging, re, json
 from urlparse import urlparse
@@ -23,6 +24,16 @@ def load_tlds():
 
 def load_exclusions():
     return [exclusion.domain for exclusion in ExcludedDomain.objects.all()]
+
+def deep_delete_project(project):
+    uploaded_file = UploadedFile.objects.get(project_id=project.id)
+    uploaded_file.delete()
+    
+    project_domains = ProjectDomain.objects.filter(project_id=project.id)
+    for pd in project_domains:
+        pd.delete()
+
+    project.delete()
 
 def remove_subdomains(url, tlds):
     # Checks for presence of // before domain (required by urlparse)
@@ -129,7 +140,12 @@ def profile(request):
         project.file = UploadedFile.objects.get(project_id=project.id)
         logger.debug('Filename: %s' % project.file.filename)
         project.domains = ProjectDomain.objects.filter(project_id=project.id)
-    return render(request, 'main/profile.html', {'user' : request.user, 'projects' : projects, 'uploadform' : uploadform, 'profile_message' : profile_message, 'profile_messagetype' : profile_messagetype})
+    exclusions = None
+    preserved = None
+    if request.user.is_superuser:
+        exclusions = '\n'.join([e.domain for e in ExcludedDomain.objects.all()])
+        preserved = '\n'.join([p.domain for p in PreservedDomain.objects.all()])
+    return render(request, 'main/profile.html', {'user' : request.user, 'projects' : projects, 'uploadform' : uploadform, 'profile_message' : profile_message, 'profile_messagetype' : profile_messagetype, 'exclusions' : exclusions, 'preserved' : preserved})
 
 def upload_project(request):
     if not request.user.is_authenticated():
@@ -191,3 +207,46 @@ def change_password(request):
         request.session['profile_message'] = 'Password unchanged: the entered old password is invalid.'
         request.session['profile_messagetype'] = 'danger'
     return redirect('/profile')
+
+def delete_project(request):
+    if not request.user.is_authenticated():
+        return redirect('/')
+    pid = int(request.GET['pid'])
+    project = UserProject.objects.get(id=pid)
+    if project.user_id != request.user.id:
+        return redirect('/')
+    pname = UploadedFile.objects.get(project_id=project.id).filename
+    deep_delete_project(project)
+    request.session['profile_message'] = 'Project "%s" has been deleted.' % pname
+    request.session['profile_messagetype'] = 'success'
+    return redirect('/profile')
+
+@transaction.atomic
+def update_admin(request):
+    if not request.user.is_authenticated() or not request.user.is_superuser or request.method != 'POST':
+        return redirect('/')
+    exclusions = request.POST['exclusions']
+    preserved = request.POST['preserved']
+
+    # Clear old values
+    ExcludedDomain.objects.all().delete()
+    PreservedDomain.objects.all().delete()
+
+    for e in exclusions.split('\n'):
+        e = e.strip()
+        if len(e) == 0:
+            continue
+        ed = ExcludedDomain(domain=e)
+        ed.save()
+
+    for p in preserved.split('\n'):
+        p = p.strip()
+        if len(p) == 0:
+            continue
+        pd = PreservedDomain(domain=p)
+        pd.save()
+
+    request.session['profile_message'] = 'Administration settings successfully updated'
+    request.session['profile_messagetype'] = 'success'
+    return redirect('/profile')
+
