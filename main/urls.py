@@ -13,4 +13,5 @@ urlpatterns = patterns('',
     url(r'delete_project$', views.delete_project, name='delete_project'),
     url(r'update_admin$', views.update_admin, name='update_admin'),
     url(r'register_user$', views.register_user, name='register_user'),
+    url(r'check_username$', views.check_username, name='check_username'),
     url(r'upload_project$', views.upload_project, name='upload_project'))

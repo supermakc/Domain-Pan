@@ -294,3 +294,12 @@ def register_user(request):
     login(request, user)
 
     return redirect('/profile')
+
+@csrf_exempt
+def check_username(request):
+    result = {'available':False}
+    if request.method == 'POST':
+        username = request.POST['username']
+        if len(User.objects.filter(username=username)) == 0:
+            result['available'] = True;
+    return HttpResponse(json.dumps(result))
