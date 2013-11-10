@@ -18,7 +18,7 @@
       <div class="container">
         <h1>Know the web.</h1>
         <p>Want to know about a specific domain?  Does it get traffic?  Who visits it?  Is it available and how much does it cost? <b>Get started now.</b></p>
-        <p><a class="btn btn-primary btn-lg" role="button" data-toggle="modal" data-target="#signup">Sign up</a></p>
+        <p><a class="btn btn-primary btn-lg" role="button" data-toggle="modal" data-target="#register">Sign up</a></p>
       </div>
     </div>
 
@@ -54,4 +54,115 @@
         </div>
       </div>
     </div>
+
+    <div class="modal fade" id="register" role="dialog" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1>Register</h1>
+          </div>
+          <div class="modal-body" id="register-body">
+            <div class="alert alert-info">Enter your details below. <b>All fields are required</b>.</div>
+            <form class="form-horizontal" role="form" id="register" action="/register_user" method="post">
+              {% csrf_token %}
+              <div class="form-group">
+                <label for="input_username" class="col-sm-3 control-label">Username</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="input_username" name="username" placeholder="Username" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="input_first_name" class="col-sm-3 control-label">First name</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="input_first_name" name="first_name" placeholder="First name" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="input_last_name" class="col-sm-3 control-label">Last name</label>
+                <div class="col-sm-9">
+                  <input type="text" class="form-control" id="input_last_name" name="last_name" placeholder="Last name" />
+                </div>
+              </div>
+              <br />
+              <div class="form-group">
+                <label for="input_email" class="col-sm-3 control-label">Email</label>
+                <div class="col-sm-9">
+                  <input type="email" class="form-control" id="input_email" name="email" placeholder="Email" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="input_repemail" class="col-sm-3 control-label">Repeat email</label>
+                <div class="col-sm-9">
+                  <input type="email" class="form-control" id="input_repemail" name="repemail" placeholder="Repeat email" />
+                </div>
+              </div>
+              <br />
+              <div class="form-group">
+                <label for="input_password" class="col-sm-3 control-label">Password</label>
+                <div class="col-sm-9">
+                  <input type="password" class="form-control" id="input_password" name="password" placeholder="Password" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="input_reppassword" class="col-sm-3 control-label">Repeat password</label>
+                <div class="col-sm-9">
+                  <input type="password" class="form-control" id="input_reppassword" name="reppassword" placeholder="Repeat password" />
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <a class="btn btn-default" data-dismiss="modal" type="button">Cancel</a>
+            <a class="btn btn-primary" type="button" href="#" onclick="validate_registration();">Register</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      function str_obj(obj) {
+        var str = ''
+        for (k in obj) {
+          str += k+' '+obj[k]+'\n';
+        }
+        return str;
+      } 
+      function get_field_value(form, fieldname) {
+        str = 'input[name="'+fieldname+'"]';
+        return form.find(str).val().trim();
+      }
+
+      function validate_registration() {
+        var form = $('form#register');
+
+        var first_name  = get_field_value(form, 'first_name');
+        var last_name   = get_field_value(form, 'last_name');
+        var email       = get_field_value(form, 'email');
+        var repemail    = get_field_value(form, 'repemail');
+        var password    = get_field_value(form, 'password');
+        var reppassword = get_field_value(form, 'reppassword');
+
+        if (first_name.length == 0 ||
+            last_name.length == 0 ||
+            email.length == 0 ||
+            password.length == 0 ||
+            repemail.length == 0 ||
+            reppassword.length == 0) {
+          alert('Error: All fields must be filled in.');
+          return;
+        }
+
+        if (email != repemail) {
+          alert('Error: Email fields must match.');
+          return;
+        }
+
+        if (password != reppassword) {
+          alert('Error: Password fields must match.');
+          return;
+        }
+
+        form.submit();
+      }
+    </script>
 {% endblock %}

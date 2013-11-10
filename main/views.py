@@ -277,3 +277,20 @@ def update_admin(request):
     request.session['profile_messagetype'] = 'success'
     return redirect('/profile')
 
+def register_user(request):
+    if request.method != 'POST':
+        return redirect('/')
+
+    username = request.POST['username']
+    first_name = request.POST['first_name']
+    last_name = request.POST['last_name']
+    email = request.POST['email']
+    password = request.POST['password']
+
+    user = User.objects.create_user(username, email, password, first_name=first_name, last_name=last_name)
+    user.save()
+
+    user = authenticate(username=username, password=password)
+    login(request, user)
+
+    return redirect('/profile')
