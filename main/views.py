@@ -3,6 +3,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.core.cache import cache
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -142,10 +143,23 @@ def profile(request):
         project.domains = ProjectDomain.objects.filter(project_id=project.id)
     exclusions = None
     preserved = None
-    if request.user.is_superuser:
+    staff = None
+    if request.user.is_staff:
         exclusions = '\n'.join([e.domain for e in ExcludedDomain.objects.all()])
         preserved = '\n'.join([p.domain for p in PreservedDomain.objects.all()])
-    return render(request, 'main/profile.html', {'user' : request.user, 'projects' : projects, 'uploadform' : uploadform, 'profile_message' : profile_message, 'profile_messagetype' : profile_messagetype, 'exclusions' : exclusions, 'preserved' : preserved})
+    if request.user.is_superuser:
+        staff = '\n'.join([u.username for u in User.objects.filter(is_staff=True)])
+    return render(request, 
+        'main/profile.html', 
+        {
+            'user' : request.user, 
+            'projects' : projects, 
+            'uploadform' : uploadform, 
+            'profile_message' : profile_message, 
+            'profile_messagetype' : profile_messagetype, 
+            'exclusions' : exclusions, 
+            'preserved' : preserved,
+            'staff' : staff})
 
 def upload_project(request):
     if not request.user.is_authenticated():
@@ -223,7 +237,7 @@ def delete_project(request):
 
 @transaction.atomic
 def update_admin(request):
-    if not request.user.is_authenticated() or not request.user.is_superuser or request.method != 'POST':
+    if not request.user.is_authenticated() or not request.user.is_staff or request.method != 'POST':
         return redirect('/')
     exclusions = request.POST['exclusions']
     preserved = request.POST['preserved']
@@ -245,6 +259,19 @@ def update_admin(request):
             continue
         pd = PreservedDomain(domain=p)
         pd.save()
+
+    if request.user.is_superuser:
+        staff = request.POST['staff']
+        staff_list = []
+        for s in staff.split('\n'):
+            s = s.strip()
+            if len(s) == 0:
+                continue
+            staff_list.append(s)
+            
+        for u in User.objects.all():
+            u.is_staff = u.username in staff_list
+            u.save()
 
     request.session['profile_message'] = 'Administration settings successfully updated'
     request.session['profile_messagetype'] = 'success'
