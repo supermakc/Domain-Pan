@@ -51,7 +51,7 @@
               <div class="form-group">
                 <input type="password" name="password" placeholder="Password" class="form-control" />
               </div>
-              <button type="button" class="btn btn-success" onclick="return login();">Login</button>
+              <button type="submit" class="btn btn-success" onclick="return login();">Login</button>
             </form>
           {% endif %}
         </div>
@@ -232,6 +232,7 @@
               else {
                 // alert('Invalid username or password.'+data);
                 $('#login-progress').hide();
+		$('#login-message-text').html('Invalid username or password.');
                 $('#login-message').show();
                 $('#login-footer').show();
               }
@@ -241,6 +242,7 @@
             },
           });
         }, 1000);
+	return false;
       }
       </script>
   </body>

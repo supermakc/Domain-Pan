@@ -11,7 +11,7 @@ from django.db import transaction
 from forms import URLFileForm
 from models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain
 
-import os, logging, re, json
+import os, logging, re, json, string, random
 from urlparse import urlparse
 from datetime import datetime
 
@@ -328,7 +328,8 @@ def reset_user(request):
         chars = string.ascii_uppercase + string.ascii_lowercase + string.digits
         newpassword = ''.join(random.choice(chars) for x in range(10))
         user.set_password(newpassword)
-        send_mail('Domain Checker: Password reset', 'You have been granted a temporary password of "%s".  Please change it as soon as possible.', return_address, [email])
+        user.save()
+        send_mail('Domain Checker: Password reset', 'You have been granted a temporary password of "%s".  Please change it as soon as possible.' % newpassword, return_address, [email])
         result['result'] = 'success'
         result['message'] = 'A new password has been sent to "%s"' % email
 
