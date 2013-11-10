@@ -2,6 +2,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.core.cache import cache
+from django.core.mail import send_mail
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
@@ -302,4 +303,33 @@ def check_username(request):
         username = request.POST['username']
         if len(User.objects.filter(username=username)) == 0:
             result['available'] = True;
+    return HttpResponse(json.dumps(result))
+
+@csrf_exempt
+def reset_user(request):
+    result = {'result':'error', 'message':'No user exists with that email.'}
+    if request.method != 'POST':
+        return redirect('/')
+
+    email = request.POST['email']
+    user = User.objects.filter(email=email)
+    if len(user) == 0:
+        return HttpResponse(json.dumps(result))
+    else:
+        user = user[0]
+
+    return_address = 'noreply@dc.charlery.me'
+    
+    if request.POST['reset'] == 'username':
+        send_mail('Domain Checker: Username retrieval', 'Your username is "%s"' % user.username, return_address, [email])
+        result['result'] = 'success'
+        result['message'] = 'Your username has been sent to "%s"' % email
+    elif request.POST['reset'] == 'password':
+        chars = string.ascii_uppercase + string.ascii_lowercase + string.digits
+        newpassword = ''.join(random.choice(chars) for x in range(10))
+        user.set_password(newpassword)
+        send_mail('Domain Checker: Password reset', 'You have been granted a temporary password of "%s".  Please change it as soon as possible.', return_address, [email])
+        result['result'] = 'success'
+        result['message'] = 'A new password has been sent to "%s"' % email
+
     return HttpResponse(json.dumps(result))
