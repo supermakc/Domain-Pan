@@ -8,18 +8,20 @@ from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.utils import timezone
 from forms import URLFileForm
 from models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain
 
 import os, logging, re, json, string, random
 from urlparse import urlparse
-from datetime import datetime
 
 TLDS_CACHE_KEY = 'TDLS_CACHE_KEY'
 EXCLUSION_CACHE_KEY = 'EXCLUSION_CACHE_KEY'
 
 logger = logging.getLogger(__name__)
 schemecheck_re = re.compile(r'[^\.]*?//')
+iponly_re = re.compile(r'[^\.]*?//([0-9]{1,3}\.){3}[0-9]{1,3}[/$]')
+portend_re = re.compile(r'(.*?):[0-9]+$')
 
 def load_tlds():
     return [tld.domain for tld in TLD.objects.filter(included=True)]
@@ -43,6 +45,10 @@ def remove_subdomains(url, tlds):
         url = '//'+url
 
     url_elements = urlparse(url, scheme='http')[1].split('.')
+    if len(url_elements) > 0:
+        pe = portend_re.match(url_elements[-1])
+        if pe is not None:
+            url_elements[-1] = pe.group(1)
     # logger.debug(urlparse(url).hostname)
     # url_elements = ["abcde","co","uk"]
 
@@ -63,22 +69,43 @@ def remove_subdomains(url, tlds):
             return ".".join(url_elements[i-1:])
             # returns "abcde.co.uk"
 
+    logger.debug(url_elements)
     raise ValueError("Domain not in global list of TLDs")
 
-def extract_domains(file_contents):
+def extract_domains(file_contents, fail_email, filename):
     tlds = load_tlds()
     exclusions = load_exclusions()
     domain_list = set()
     excluded_domains = set()
+    ln = 0
+    failed_domains = []
     for url in file_contents:
+        ln += 1
         if url[0] in '/\n':
             continue
         # logger.debug(url.strip())
-        domain = remove_subdomains(url.strip(), tlds)
-        if domain not in exclusions:
-            domain_list.add(domain)
-        else:
-            excluded_domains.add(domain)
+        try:
+            url = url.strip()
+            if iponly_re.match(url) is not None:
+                raise ValueError('IP only - no domain to extract')
+            elif url.startswith('javascript:'):
+                raise ValueError('Javascript hook')
+            domain = remove_subdomains(url.strip(), tlds)
+
+            if domain not in exclusions:
+                domain_list.add(domain)
+            else:
+                excluded_domains.add(domain)
+        except ValueError as e:
+            failed_domains.append((ln, url.strip(), str(e)))
+
+
+    if len(failed_domains) > 0:
+        error_email = 'The following domains failed on the file "%s":\n\n' % filename
+        for fd in failed_domains:
+            error_email += 'Line %d: %s (%s)\n' % (fd[0], fd[1], fd[2])
+        logger.debug(error_email)
+        send_mail('Domain Checker: Failed Domains', error_email, 'noreply@domain.com', [fail_email])
     logger.debug('Excluded (%d) domains: [%s]' % (len(excluded_domains), ', '.join(excluded_domains)))
     return (domain_list, excluded_domains)
 
@@ -170,13 +197,13 @@ def upload_project(request):
         logger.debug('Attempting to upload project...')
         if uploadform.is_valid():
             logger.debug('Form is valid.')
-            (domain_list, excluded_domains) = extract_domains(request.FILES['file'])
+            (domain_list, excluded_domains) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
             projectdomains = []
-            project = UserProject(is_complete=False, is_paused=False, updated=datetime.now(), user_id=request.user.id)
+            project = UserProject(is_complete=False, is_paused=False, updated=timezone.now(), user_id=request.user.id)
             project.save()
             projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=request.FILES['file'].read(), project_id=project.id)
             for domain in domain_list:
-                projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=False, is_available=False, last_checked=datetime.now(), project_id=project.id))
+                projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=False, is_available=False, last_checked=timezone.now(), project_id=project.id))
             projectfile.save()
             [pd.save() for pd in projectdomains]
         else:
