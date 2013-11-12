@@ -1,5 +1,8 @@
 # Django settings for domain_checker project.
 
+# import djcelery
+# djcelery.setup_loader()
+
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
@@ -120,10 +123,12 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'kombu.transport.django',
     # Uncomment the next line to enable the admin:
     # 'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
+    'djcelery',
     'main',
 )
 
@@ -184,3 +189,19 @@ PASSWORD_HASHERS = (
     'django.contrib.auth.hashers.MD5PasswordHasher',
     'django.contrib.auth.hashers.CryptPasswordHasher',
 )
+
+"""
+from celery import Celery
+celery = Celery(broker="amqp://guest:guest@127.0.0.1:5672//")
+
+celery.conf.update(
+    CELERY_DEFAULT_QUEUE = "main",
+    CELERY_DEFAULT_EXCHANGE = "main",
+    CELERY_DEFAULT_EXCHANGE_TYPE = "direct",
+    CELERY_DEFAULT_ROUTING_KEY = "main",
+    BROKER_URL= 'django://',
+)
+"""
+
+import djcelery
+djcelery.setup_loader()

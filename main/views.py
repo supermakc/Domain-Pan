@@ -1,16 +1,17 @@
 # Create your views here.
+from __future__ import absolute_import
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.utils import timezone
-from forms import URLFileForm
-from models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain
+from main.forms import URLFileForm
+from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain
+from main.tasks import mul, check_project_domains
 
 import os, logging, re, json, string, random
 from urlparse import urlparse
@@ -177,6 +178,12 @@ def profile(request):
         preserved = '\n'.join([p.domain for p in PreservedDomain.objects.all()])
     if request.user.is_superuser:
         staff = '\n'.join([u.username for u in User.objects.filter(is_staff=True)])
+    """
+    result = mul.delay(4, 4)
+    while not result.ready():
+        pass
+    logger.debug('mul: %d' % result.get())
+    """
     return render(request, 
         'main/profile.html', 
         {
@@ -192,6 +199,7 @@ def profile(request):
 def upload_project(request):
     if not request.user.is_authenticated():
         return redirect('/')
+    project = None
     if request.method == 'POST':
         uploadform = URLFileForm(request.POST, request.FILES)
         logger.debug('Attempting to upload project...')
@@ -208,6 +216,8 @@ def upload_project(request):
             [pd.save() for pd in projectdomains]
         else:
             logger.debug(uploadform.errors)
+
+    check_project_domains.delay(project.id)
     return redirect('/profile', message='Project added.  You will be emailed when all domains are checked.', messagetype='success')
 
 def change_details(request):
@@ -361,3 +371,5 @@ def reset_user(request):
         result['message'] = 'A new password has been sent to "%s"' % email
 
     return HttpResponse(json.dumps(result))
+
+
