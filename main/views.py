@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -178,12 +179,6 @@ def profile(request):
         preserved = '\n'.join([p.domain for p in PreservedDomain.objects.all()])
     if request.user.is_superuser:
         staff = '\n'.join([u.username for u in User.objects.filter(is_staff=True)])
-    """
-    result = mul.delay(4, 4)
-    while not result.ready():
-        pass
-    logger.debug('mul: %d' % result.get())
-    """
     return render(request, 
         'main/profile.html', 
         {
@@ -198,6 +193,7 @@ def profile(request):
 
 def upload_project(request):
     if not request.user.is_authenticated():
+        logger.debug('Unauthenticated user.')
         return redirect('/')
     project = None
     if request.method == 'POST':
@@ -218,7 +214,9 @@ def upload_project(request):
             logger.debug(uploadform.errors)
 
     check_project_domains.delay(project.id)
-    return redirect('/profile', message='Project added.  You will be emailed when all domains are checked.', messagetype='success')
+    request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
+    request.session['profile_messagetype'] = 'success'
+    return redirect('/profile')
 
 def change_details(request):
     if not request.user.is_authenticated():
@@ -372,4 +370,21 @@ def reset_user(request):
 
     return HttpResponse(json.dumps(result))
 
+def project(request):
+    if not request.user.is_authenticated() or request.method != 'GET':
+        return redirect('/')
+    
+    project = UserProject.objects.get(id=request.GET['id'])
+    # Does the user actually own this project?
+    if project is None or project.user_id != request.user.id:
+        session['profile_message'] = 'The specified project does not exist or belongs to another user.'
+        session['profile_messagetype'] = 'danger'
+        return redirect('/profile')
 
+    project_file = UploadedFile.objects.get(project_id=project.id)
+    project_domains = ProjectDomain.objects.filter(project_id=project.id).order_by('-is_checked', '-is_available', 'domain')
+    completed_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True)
+
+    progress = '%.2f' % ((len(completed_domains)*100.0)/len(project_domains))
+
+    return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : project_domains, 'progress' : progress })

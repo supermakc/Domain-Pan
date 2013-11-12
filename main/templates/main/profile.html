@@ -29,7 +29,7 @@
         <tr {% if project.is_complete %}class="success"{% endif %}>
           <td>{{ project.file.filename }}</td><td>{{ project.created }}</td><td>{{ project.domains|length }}</td><td>{{ project.is_complete }}</td>
           <td>
-            <a role="button" class="btn btn-info btn-xs" href="/project_progress?pid={{ project.id }}">View progress</a>
+            <a role="button" class="btn btn-info btn-xs" href="/project?id={{ project.id }}">View progress</a>
             <a role="button" class="btn btn-danger btn-xs" href="#" onclick="confirm_project_delete('{{ project.file.filename }}', '{{ project.id }}');">Delete</a>
           </td>
         </tr>

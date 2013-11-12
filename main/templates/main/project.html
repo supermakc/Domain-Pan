@@ -1,0 +1,52 @@
+{% extends "main/base.html" %}
+
+{% block title %}Domain Checker - Project Progress{% endblock %}
+
+{% block content %}
+
+<div class="container">
+<h1>Project Progress</h1>
+
+<p>Viewing details for project '{{ project_file.filename }}' (or return to <a href="/profile">profile</a>).</p>
+
+<h3>Summary</h3>
+
+<p>Complete: {{ project.is_complete }}
+<p>Progress: <b>{{ progress }}%</b></p>
+<p>Number of domains: {{ domains|length }}</p>
+<p>Last updated: {{ project.updated }}</p>
+
+<hr />
+<h3>Domain Listing</h3>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Domain Name</th><th>Checked</th><th>Last Checked</th><th>Available</th>
+    </tr>
+  </thead>
+  {% for domain in domains %}
+  <tr {% if domain.is_available and domain.is_checked %}class="success"{% elif domain.is_checked %}class="warning"{% else %}class="danger"{% endif %}>
+      <td>{{ domain.domain }}</td>
+      <td>{{ domain.is_checked }}</td>
+      <td>
+        {% if domain.is_checked %}
+          {{ domain.last_checked }}
+        {% else %}
+          --
+        {% endif %}
+      </td>
+      <td>
+        {% if domain.is_checked %}
+          {{ domain.is_available }}
+        {% else %}
+          --
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+</table>
+<p><a href="/profile">Return to profile</a>.</p>
+</div>
+
+{% endblock %}

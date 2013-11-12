@@ -5,7 +5,9 @@ import copy, time
 from django.db import transaction
 from django.contrib.auth.models import User
 from django.utils import timezone
-from main.models import ProjectDomain, UserProject
+from django.core.mail import send_mail
+from main.models import ProjectDomain, UserProject, UploadedFile
+from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
@@ -40,7 +42,7 @@ def xsum(numbers):
     return sum(numbers)
 
 def parse_namecheap_result(rstring):
-    # print rstring
+    print rstring
     tree = ElementTree.fromstring(rstring)
     raw_results = tree.findall('./{http://api.namecheap.com/xml.response}CommandResponse/{http://api.namecheap.com/xml.response}DomainCheckResult')
     result_list = []
@@ -50,6 +52,10 @@ def parse_namecheap_result(rstring):
             'available' : bool(result.attrib['Available']),
             'errorno' : int(result.attrib['ErrorNo']),
             'description' : result.attrib['Description'],})
+
+    for result in result_list:
+        print result
+
     return result_list
 
 @app.task
@@ -66,6 +72,15 @@ def check_project_domains(project_id):
             project.is_complete = True
             project.updated = timezone.now()
             project.save()
+
+            pfile = UploadedFile.objects.get(project_id=project.id)
+            reply_address = 'noreply@domain.com'
+            server_address = 'http://domain.com:8000'
+            messagebody = ('The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
+                          '%s/project?id=%d\n\n' + \
+                          'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
+            user = User.objects.get(id=project.user_id)
+            send_mail('Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
             break
 
         domain_str = ','.join([pd.domain for pd in domain_list])
@@ -76,13 +91,12 @@ def check_project_domains(project_id):
         rxml = r.text
         results = parse_namecheap_result(rxml)
         for result in results:
-            i = 0
-            print result['domain']
-            if result['domain'] == domain_list[i].domain:
-                domain_list[i].is_available = result['available']
-                break
-            else:
-                i += 1
+            print 'Finding match for "%s"...' % (result['domain'])
+            for domain in domain_list:
+                if result['domain'] == domain.domain:
+                    print '   Match found with domain name "%s"' % (domain.domain)
+                    domain.is_available = result['available']
+                    break
 
         # TODO: Remaining domains throw errors, but we ignore these for now
         for domain in domain_list:

@@ -15,4 +15,5 @@ urlpatterns = patterns('',
     url(r'register_user$', views.register_user, name='register_user'),
     url(r'check_username$', views.check_username, name='check_username'),
     url(r'reset_user$', views.reset_user, name='reset_user'),
+    url(r'^project$', views.project, name='project'),
     url(r'upload_project$', views.upload_project, name='upload_project'))
