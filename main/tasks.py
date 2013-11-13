@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from xml.etree import ElementTree
+from multiprocessing import Lock
 import copy, time
 
 from django.db import transaction
@@ -25,9 +26,11 @@ NAMECHEAP_PARAMS = {
         'ApiUser' : 'username',
         'ApiKey' : 'NAMECHEAP_API_KEY',
         'UserName' : 'username',
-        'ClientIp' : LOCAL_IP,
+        'ClientIp' : TESTSERVER_IP,
         'command' : 'namecheap.domains.check',
         'DomainList' : '',}
+
+namecheap_lock = Lock()
 
 @app.task
 def add(x, y):
@@ -64,8 +67,11 @@ def check_project_domains(project_id):
     # print len(domain_list)
 
     while True:
-        while not cache.add(NAMECHEAP_LOCK_ID, 'true', MINIMUM_WAIT_TIME):
+        namecheap_lock.acquire()
+        """
+        while not cache.add(NAMECHEAP_LOCK_ID, 'true', MINIMUM_WAIT_TIME*4):
             pass
+        """
         domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)[:URLS_PER_REQUEST]
         if len(domain_list) == 0:
             project = UserProject.objects.get(id=project_id)
@@ -75,12 +81,14 @@ def check_project_domains(project_id):
 
             pfile = UploadedFile.objects.get(project_id=project.id)
             reply_address = 'noreply@domain.com'
-            server_address = 'http://domain.com:8000'
+            server_address = 'http://dc.domain.com'
             messagebody = ('The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
                           '%s/project?id=%d\n\n' + \
                           'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
             user = User.objects.get(id=project.user_id)
             send_mail('Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
+            namecheap_lock.release()
+            # cache.delete(NAMECHEAP_LOCK_ID)
             break
 
         domain_str = ','.join([pd.domain for pd in domain_list])
@@ -104,7 +112,9 @@ def check_project_domains(project_id):
             domain.last_checked = timezone.now()
             domain.save()
 
-        cache.delete(NAMECHEAP_LOCK_ID)
+        time.sleep(MINIMUM_WAIT_TIME)
+        namecheap_lock.release()
+        # cache.delete(NAMECHEAP_LOCK_ID)
         # break
 
 
