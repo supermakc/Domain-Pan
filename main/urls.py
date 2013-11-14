@@ -1,9 +1,12 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import patterns, url, include
+from django.contrib import admin
+admin.autodiscover()
 
 from main import views
 
 urlpatterns = patterns('',
     url(r'^$', views.index, name='index'),
+    url(r'^admin/', include(admin.site.urls)), 
     url(r'^login$', views.check_login, name='check_login'),
     url(r'^profile$', views.profile, name='profile'),
     url(r'logout_user$', views.logout_user, name='logout_user'),
