@@ -81,9 +81,10 @@ def extract_domains(file_contents, fail_email, filename):
     excluded_domains = set()
     ln = 0
     failed_domains = []
-    for url in file_contents:
+    filedata = file_contents.read()
+    for url in filedata.split('\n'):
         ln += 1
-        if url[0] in '/\n':
+        if len(url) == 0 or url[0] in '/\n':
             continue
         # logger.debug(url.strip())
         try:
@@ -109,7 +110,7 @@ def extract_domains(file_contents, fail_email, filename):
         logger.debug(error_email)
         send_mail('Domain Checker: Failed Domains', error_email, 'noreply@domain.com', [fail_email])
     logger.debug('Excluded (%d) domains: [%s]' % (len(excluded_domains), ', '.join(excluded_domains)))
-    return (domain_list, excluded_domains)
+    return (domain_list, excluded_domains, filedata)
 
 def index(request):
     fdir = os.path.dirname(__file__)
@@ -201,11 +202,11 @@ def upload_project(request):
         logger.debug('Attempting to upload project...')
         if uploadform.is_valid():
             logger.debug('Form is valid.')
-            (domain_list, excluded_domains) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
+            (domain_list, excluded_domains, filedata) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
             projectdomains = []
             project = UserProject(is_complete=False, is_paused=False, updated=timezone.now(), user_id=request.user.id)
             project.save()
-            projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=request.FILES['file'].read(), project_id=project.id)
+            projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=filedata, project_id=project.id)
             for domain in domain_list:
                 projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=False, is_available=False, last_checked=timezone.now(), project_id=project.id))
             projectfile.save()
