@@ -21,15 +21,31 @@ URLS_PER_REQUEST = 5
 LOCAL_IP = '127.0.0.1'
 TESTSERVER_IP = '127.0.0.1'
 
-# NAMECHEAP_API_URL = 'https://api.sandbox.namecheap.com/xml.response'
-NAMECHEAP_API_URL = 'https://api.namecheap.com/xml.response'
+NAMECHEAP_SANDBOX_API_URL = 'https://api.sandbox.namecheap.com/xml.response'
+NAMECHEAP_REAL_API_URL = 'https://api.namecheap.com/xml.response'
+
+NAMECHEAP_SANDBOX_API_USER = 'username'
+NAMECHEAP_REAL_API_USER = 'username'
+
+NAMECHEAP_SANDBOX_USERNAME = 'username'
+NAMECHEAP_REAL_API_USER = 'username'
+
+# NAMECHEAP_SANDBOX_API_KEY = 'NAMECHEAP_API_KEY'
+NAMECHEAP_SANDBOX_API_KEY = 'NAMECHEAP_API_KEY'
+NAMECHEAP_REAL_API_KEY = 'NAMECHEAP_API_KEY'
+
+NAMECHEAP_IP = LOCAL_IP
+NAMECHEAP_API_URL = NAMECHEAP_SANDBOX_API_URL
+NAMECHEAP_API_KEY = NAMECHEAP_SANDBOX_API_KEY
+NAMECHEAP_USERNAME = NAMECHEAP_SANDBOX_USERNAME
+NAMECHEAP_API_USER = NAMECHEAP_SANDBOX_API_USER
+
 NAMECHEAP_PARAMS = [
-        ('ApiUser', 'username'),
-        #( 'ApiKey', 'NAMECHEAP_API_KEY'),
-        ('ApiKey','NAMECHEAP_API_KEY'),
-        ('UserName', 'username'),
+        ('ApiUser', NAMECHEAP_API_USER),
+        ('ApiKey', NAMECHEAP_API_KEY),
+        ('UserName', NAMECHEAP_USERNAME),
         ('Command', 'namecheap.domains.check'),
-        ('ClientIp', TESTSERVER_IP),
+        ('ClientIp', NAMECHEAP_IP),
         ]
         # ('DomainList', '')]
 
