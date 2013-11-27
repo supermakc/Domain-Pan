@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from xml.etree import ElementTree
 from multiprocessing import Lock
-import copy, time
+import copy, time, logging, json
 
 from django.db import transaction
 from django.contrib.auth.models import User
@@ -16,19 +16,22 @@ import requests
 
 NAMECHEAP_LOCK_ID = 'namecheap-lock'
 MINIMUM_WAIT_TIME = 30 # seconds
-URLS_PER_REQUEST = 20
+URLS_PER_REQUEST = 5
 
 LOCAL_IP = '127.0.0.1'
 TESTSERVER_IP = '127.0.0.1'
 
-NAMECHEAP_API_URL = 'https://api.sandbox.namecheap.com/xml.response'
-NAMECHEAP_PARAMS = {
-        'ApiUser' : 'username',
-        'ApiKey' : 'NAMECHEAP_API_KEY',
-        'UserName' : 'username',
-        'ClientIp' : TESTSERVER_IP,
-        'command' : 'namecheap.domains.check',
-        'DomainList' : '',}
+# NAMECHEAP_API_URL = 'https://api.sandbox.namecheap.com/xml.response'
+NAMECHEAP_API_URL = 'https://api.namecheap.com/xml.response'
+NAMECHEAP_PARAMS = [
+        ('ApiUser', 'username'),
+        #( 'ApiKey', 'NAMECHEAP_API_KEY'),
+        ('ApiKey','NAMECHEAP_API_KEY'),
+        ('UserName', 'username'),
+        ('Command', 'namecheap.domains.check'),
+        ('ClientIp', TESTSERVER_IP),
+        ]
+        # ('DomainList', '')]
 
 namecheap_lock = Lock()
 
@@ -66,6 +69,11 @@ def check_project_domains(project_id):
     # domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)
     # print len(domain_list)
 
+    logging.basicConfig() 
+    logging.getLogger().setLevel(logging.DEBUG)
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(logging.DEBUG)
+    requests_log.propagate = True
     while True:
         namecheap_lock.acquire()
         """
@@ -92,10 +100,14 @@ def check_project_domains(project_id):
             break
 
         domain_str = ','.join([pd.domain for pd in domain_list])
+        # domain_str='homeschooling.com,omnibooksonline.com'
         params = copy.deepcopy(NAMECHEAP_PARAMS)
-        params['DomainList'] = domain_str
+        params.append(('DomainList', domain_str))
         print domain_str
+        print params
         r = requests.get(NAMECHEAP_API_URL, params=params)
+        print r.url
+        print r.headers
         rxml = r.text
         results = parse_namecheap_result(rxml)
         for result in results:
