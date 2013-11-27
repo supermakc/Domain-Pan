@@ -4,6 +4,7 @@ from multiprocessing import Lock
 import copy, time, logging, json
 
 from django.db import transaction
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.mail import send_mail
@@ -15,37 +16,12 @@ from domain_checker.celery import app
 import requests
 
 NAMECHEAP_LOCK_ID = 'namecheap-lock'
-MINIMUM_WAIT_TIME = 30 # seconds
-URLS_PER_REQUEST = 5
-
-LOCAL_IP = '127.0.0.1'
-TESTSERVER_IP = '127.0.0.1'
-
-NAMECHEAP_SANDBOX_API_URL = 'https://api.sandbox.namecheap.com/xml.response'
-NAMECHEAP_REAL_API_URL = 'https://api.namecheap.com/xml.response'
-
-NAMECHEAP_SANDBOX_API_USER = 'username'
-NAMECHEAP_REAL_API_USER = 'username'
-
-NAMECHEAP_SANDBOX_USERNAME = 'username'
-NAMECHEAP_REAL_API_USER = 'username'
-
-# NAMECHEAP_SANDBOX_API_KEY = 'NAMECHEAP_API_KEY'
-NAMECHEAP_SANDBOX_API_KEY = 'NAMECHEAP_API_KEY'
-NAMECHEAP_REAL_API_KEY = 'NAMECHEAP_API_KEY'
-
-NAMECHEAP_IP = LOCAL_IP
-NAMECHEAP_API_URL = NAMECHEAP_SANDBOX_API_URL
-NAMECHEAP_API_KEY = NAMECHEAP_SANDBOX_API_KEY
-NAMECHEAP_USERNAME = NAMECHEAP_SANDBOX_USERNAME
-NAMECHEAP_API_USER = NAMECHEAP_SANDBOX_API_USER
-
 NAMECHEAP_PARAMS = [
-        ('ApiUser', NAMECHEAP_API_USER),
-        ('ApiKey', NAMECHEAP_API_KEY),
-        ('UserName', NAMECHEAP_USERNAME),
+        ('ApiUser', settings.NAMECHEAP_API_USER),
+        ('ApiKey', settings.NAMECHEAP_API_KEY),
+        ('UserName', settings.NAMECHEAP_API_USERNAME),
         ('Command', 'namecheap.domains.check'),
-        ('ClientIp', NAMECHEAP_IP),
+        ('ClientIp', settings.NAMECHEAP_IP),
         ]
         # ('DomainList', '')]
 
@@ -85,18 +61,19 @@ def check_project_domains(project_id):
     # domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)
     # print len(domain_list)
 
-    logging.basicConfig() 
-    logging.getLogger().setLevel(logging.DEBUG)
-    requests_log = logging.getLogger("requests.packages.urllib3")
-    requests_log.setLevel(logging.DEBUG)
-    requests_log.propagate = True
+    if settings.DEBUG:
+        logging.basicConfig() 
+        logging.getLogger().setLevel(logging.DEBUG)
+        requests_log = logging.getLogger("requests.packages.urllib3")
+        requests_log.setLevel(logging.DEBUG)
+        requests_log.propagate = True
     while True:
         namecheap_lock.acquire()
         """
         while not cache.add(NAMECHEAP_LOCK_ID, 'true', MINIMUM_WAIT_TIME*4):
             pass
         """
-        domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)[:URLS_PER_REQUEST]
+        domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)[:settings.NAMECHEAP_URLS_PER_REQ]
         if len(domain_list) == 0:
             project = UserProject.objects.get(id=project_id)
             project.is_complete = True
@@ -121,7 +98,7 @@ def check_project_domains(project_id):
         params.append(('DomainList', domain_str))
         print domain_str
         print params
-        r = requests.get(NAMECHEAP_API_URL, params=params)
+        r = requests.get(settings.NAMECHEAP_API_URL, params=params)
         print r.url
         print r.headers
         rxml = r.text
@@ -140,7 +117,7 @@ def check_project_domains(project_id):
             domain.last_checked = timezone.now()
             domain.save()
 
-        time.sleep(MINIMUM_WAIT_TIME)
+        time.sleep(settings.NAMECHEAP_WAIT_TIME)
         namecheap_lock.release()
         # cache.delete(NAMECHEAP_LOCK_ID)
         # break

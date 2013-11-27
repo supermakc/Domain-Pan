@@ -196,3 +196,12 @@ celery.conf.update(
 
 import djcelery
 djcelery.setup_loader()
+
+NAMECHEAP_IP = '127.0.0.1'
+NAMECHEAP_API_URL = 'https://api.sandbox.namecheap.com/xml.response'
+NAMECHEAP_API_USER = 'username'
+NAMECHEAP_API_USERNAME = 'username'
+NAMECHEAP_API_KEY = 'NAMECHEAP_API_KEY'
+NAMECHEAP_WAIT_TIME = 30
+NAMECHEAP_URLS_PER_REQ = 5
+
