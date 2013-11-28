@@ -26,15 +26,15 @@
         </tr>
       </thead>
       {% for project in projects %}
-        <tr {% if project.is_complete %}class="success"{% endif %}>
-          <td>{{ project.file.filename }}</td><td>{{ project.created }}</td><td>{{ project.domains|length }}</td><td>{{ project.is_complete }}</td>
+        <tr {% if project.state == 'completed'  %}class="success"{% endif %}>
+          <td>{{ project.file.filename }}</td><td>{{ project.created }}</td><td>{{ project.domains|length }}</td><td>{% ifequal project.state 'completed' %}Yes{% else %}No{% endifequal %}</td>
           <td>
             <a role="button" class="btn btn-info btn-xs" href="/project?id={{ project.id }}">
-	      {% if project.is_complete %}
+	      {% ifequal project.state 'completed' %}
 	      View results
 	      {% else %}
 	      View progress
-	      {% endif %}
+	      {% endifequal %}
             </a>
             <a role="button" class="btn btn-danger btn-xs" href="#" onclick="confirm_project_delete('{{ project.file.filename }}', '{{ project.id }}');">Delete</a>
           </td>
@@ -156,6 +156,9 @@
         </div>
       </div>
     </form>
+    <div class="form-group">
+      <a href="/update_tlds" type="button" class="btn btn-primary">Update TLDs</a>
+    </div>
   {% endif %}
 
 </div>

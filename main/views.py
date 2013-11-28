@@ -9,10 +9,11 @@ from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from main.forms import URLFileForm
 from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain
-from main.tasks import mul, check_project_domains
+from main.tasks import check_project_domains, update_tlds
 
 import os, logging, re, json, string, random
 from urlparse import urlparse
@@ -26,7 +27,7 @@ iponly_re = re.compile(r'[^\.]*?//([0-9]{1,3}\.){3}[0-9]{1,3}[/$]')
 portend_re = re.compile(r'(.*?):[0-9]+$')
 
 def load_tlds():
-    return [tld.domain for tld in TLD.objects.filter(included=True)]
+    return [tld.domain for tld in TLD.objects.all()]
 
 def load_exclusions():
     return [exclusion.domain for exclusion in ExcludedDomain.objects.all()]
@@ -66,10 +67,11 @@ def remove_subdomains(url, tlds):
 
         # match tlds: 
         if (exception_candidate in tlds):
-            return ".".join(url_elements[i:]) 
-        if (candidate in tlds or wildcard_candidate in tlds):
-            return ".".join(url_elements[i-1:])
-            # returns "abcde.co.uk"
+            return (exception_candidate, ".".join(url_elements[i:])) 
+        elif (candidate in tlds):
+            return (candidate, ".".join(url_elements[i-1:]))
+        elif (wildcard_candidate in tlds):
+            return (wildcard_candidate, ".".join(url_elements[i-1:]))
 
     logger.debug(url_elements)
     raise ValueError("Domain not in global list of TLDs")
@@ -80,6 +82,7 @@ def extract_domains(file_contents, fail_email, filename):
     domain_list = set()
     excluded_domains = set()
     ln = 0
+    failed_lines = []
     failed_domains = []
     filedata = file_contents.read()
     for url in filedata.split('\n'):
@@ -93,24 +96,28 @@ def extract_domains(file_contents, fail_email, filename):
                 raise ValueError('IP only - no domain to extract')
             elif url.startswith('javascript:'):
                 raise ValueError('Javascript hook')
-            domain = remove_subdomains(url.strip(), tlds)
-
-            if domain not in exclusions:
-                domain_list.add(domain)
+            (tld_match, domain) = remove_subdomains(url.strip(), tlds)
+            tld = TLD.objects.get(domain=tld_match)
+            if not tld.is_recognized:
+                failed_domains.append((domain, 'unregisterable', 'Unregisterable top-level domain (%s)' % tld_match))
+            elif not tld.is_api_registerable:
+                failed_domains.append((domain, 'unregisterable', 'Domain type recognized but cannot be registered through the API (%s)'% tld_match))
+            elif domain in exclusions:
+                failed_domains.append((domain, 'unregisterable', 'Domain explicitly excluded (%s)' % domain))
             else:
-                excluded_domains.add(domain)
+                domain_list.add(domain)
         except ValueError as e:
-            failed_domains.append((ln, url.strip(), str(e)))
+            failed_lines.append((ln, url.strip(), str(e)))
 
 
-    if len(failed_domains) > 0:
-        error_email = 'The following domains failed on the file "%s":\n\n' % filename
-        for fd in failed_domains:
+    if len(failed_lines) > 0:
+        error_email = 'The following domains failed while reading the file "%s":\n\n' % filename
+        for fd in failed_lines:
             error_email += 'Line %d: %s (%s)\n' % (fd[0], fd[1], fd[2])
         logger.debug(error_email)
         send_mail('Domain Checker: Failed Domains', error_email, 'noreply@domain.com', [fail_email])
     logger.debug('Excluded (%d) domains: [%s]' % (len(excluded_domains), ', '.join(excluded_domains)))
-    return (domain_list, excluded_domains, filedata)
+    return (domain_list, failed_domains, filedata)
 
 def index(request):
     fdir = os.path.dirname(__file__)
@@ -202,15 +209,18 @@ def upload_project(request):
         logger.debug('Attempting to upload project...')
         if uploadform.is_valid():
             logger.debug('Form is valid.')
-            (domain_list, excluded_domains, filedata) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
+            (domain_list, failed_domains, filedata) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
             projectdomains = []
-            project = UserProject(is_complete=False, is_paused=False, updated=timezone.now(), user_id=request.user.id)
-            project.save()
-            projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=filedata, project_id=project.id)
-            for domain in domain_list:
-                projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=False, is_available=False, last_checked=timezone.now(), project_id=project.id))
-            projectfile.save()
-            [pd.save() for pd in projectdomains]
+            with transaction.atomic():
+                project = UserProject(state='checking', updated=timezone.now(), user_id=request.user.id)
+                project.save()
+                projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=filedata, project_id=project.id)
+                for domain in domain_list:
+                    projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=False, state='unchecked', last_checked=timezone.now(), project_id=project.id))
+                for (domain, state, error) in failed_domains:
+                    projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=True, state=state, last_checked=timezone.now(), project_id=project.id, error=error))
+                projectfile.save()
+                [pd.save() for pd in projectdomains]
         else:
             logger.debug(uploadform.errors)
 
@@ -378,14 +388,28 @@ def project(request):
     project = UserProject.objects.get(id=request.GET['id'])
     # Does the user actually own this project?
     if project is None or project.user_id != request.user.id:
-        session['profile_message'] = 'The specified project does not exist or belongs to another user.'
-        session['profile_messagetype'] = 'danger'
+        request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
+        request.session['profile_messagetype'] = 'danger'
         return redirect('/profile')
 
     project_file = UploadedFile.objects.get(project_id=project.id)
-    project_domains = ProjectDomain.objects.filter(project_id=project.id).order_by('-is_checked', '-is_available', 'domain')
+    project_domains = ProjectDomain.objects.filter(project_id=project.id).order_by('-is_checked', 'state', 'domain').exclude(state__in=['error', 'unregisterable'])
+    
     completed_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True)
+    unregisterable_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='unregisterable')
+    error_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='error')
 
-    progress = '%.2f' % ((len(completed_domains)*100.0)/len(project_domains))
+    progress = '%.2f' % ((len(completed_domains)*100.0)/len(ProjectDomain.objects.all()))
 
-    return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : project_domains, 'progress' : progress })
+    return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : project_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains })
+
+def manual_update_tlds(request):
+    if not request.user.is_authenticated() and request.user.is_superuser:
+        return redirect('/')
+
+    update_tlds.delay()
+    request.session['profile_message'] = 'Top level domain information is being synchronized from NameCheap.'
+    request.session['profile_messagetype'] = 'success'
+
+    return redirect('/profile')
+

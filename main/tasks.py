@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.mail import send_mail
-from main.models import ProjectDomain, UserProject, UploadedFile
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
@@ -20,24 +20,49 @@ NAMECHEAP_PARAMS = [
         ('ApiUser', settings.NAMECHEAP_API_USER),
         ('ApiKey', settings.NAMECHEAP_API_KEY),
         ('UserName', settings.NAMECHEAP_API_USERNAME),
-        ('Command', 'namecheap.domains.check'),
         ('ClientIp', settings.NAMECHEAP_IP),
+        # ('Command', 'namecheap.domains.check'),
         ]
         # ('DomainList', '')]
 
 namecheap_lock = Lock()
 
 @app.task
-def add(x, y):
-    return x + y
+def update_tlds():
+    params = copy.deepcopy(NAMECHEAP_PARAMS)
+    params.append(('Command', 'namecheap.domains.gettldlist'))
+    r = requests.get(settings.NAMECHEAP_API_URL, params=params)
 
-@app.task
-def mul(x, y):
-    return x * y
+    rtree = ElementTree.fromstring(r.text)
+    rels = rtree.findall('./{http://api.namecheap.com/xml.response}CommandResponse/{http://api.namecheap.com/xml.response}Tlds/{http://api.namecheap.com/xml.response}Tld')
 
-@app.task
-def xsum(numbers):
-    return sum(numbers)
+    rels = dict([(r.attrib['Name'], r) for r in rels])
+    tlds = TLD.objects.all()
+    with transaction.atomic():
+        for tld in tlds:
+            if tld.domain in rels.keys():
+                rel = rels[tld.domain]
+                tld.is_recognized = True
+                tld.is_api_registerable = (rel.attrib['IsApiRegisterable'] == 'true')
+                tld.description = rel.text
+                tld.type = rel.attrib['Type']
+            else:
+                tld.is_recognized = False
+                tld.is_api_registrable = False
+                tld.type = 'unknown'
+                tld.description = None
+            tld.save()
+
+    print 'Finished processing tlds.'
+
+    """
+    for rel in rels:
+        print '  %s : registerable: %s, type: %s, description: %s' % \
+            (rel.attrib['Name'],
+             rel.attrib['IsApiRegisterable'],
+             rel.attrib['Type'],
+             rel.text)
+    """
 
 def parse_namecheap_result(rstring):
     print rstring
@@ -47,7 +72,7 @@ def parse_namecheap_result(rstring):
     for result in raw_results:
         result_list.append({
             'domain' : result.attrib['Domain'],
-            'available' : bool(result.attrib['Available']),
+            'available' : result.attrib['Available'] == 'true',
             'errorno' : int(result.attrib['ErrorNo']),
             'description' : result.attrib['Description'],})
 
@@ -76,7 +101,7 @@ def check_project_domains(project_id):
         domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)[:settings.NAMECHEAP_URLS_PER_REQ]
         if len(domain_list) == 0:
             project = UserProject.objects.get(id=project_id)
-            project.is_complete = True
+            project.state = 'completed'
             project.updated = timezone.now()
             project.save()
 
@@ -95,6 +120,7 @@ def check_project_domains(project_id):
         domain_str = ','.join([pd.domain for pd in domain_list])
         # domain_str='homeschooling.com,omnibooksonline.com'
         params = copy.deepcopy(NAMECHEAP_PARAMS)
+        params.append(('Command', 'namecheap.domains.check'))
         params.append(('DomainList', domain_str))
         print domain_str
         print params
@@ -108,11 +134,14 @@ def check_project_domains(project_id):
             for domain in domain_list:
                 if result['domain'] == domain.domain:
                     print '   Match found with domain name "%s"' % (domain.domain)
-                    domain.is_available = result['available']
+                    domain.state = 'available' if result['available'] else 'unavailable'
                     break
 
         # TODO: Remaining domains throw errors, but we ignore these for now
         for domain in domain_list:
+            if domain.state == 'unchecked':
+                domain.state = 'error'
+                domain.error = 'Unable to determine TLD'
             domain.is_checked = True
             domain.last_checked = timezone.now()
             domain.save()

@@ -33,7 +33,7 @@ def main():
         c.execute("""SELECT COUNT(*) FROM """+tld_table+""" WHERE domain = %s""", (tld,))
         if c.fetchone()[0] == 0:
             tld_insertion_count += 1
-            c.execute("""INSERT INTO """+tld_table+""" (domain, included) VALUES(%s, 1)""", (tld,))
+            c.execute("""INSERT INTO """+tld_table+""" (domain, is_recognized, is_api_registerable, type, description) VALUES(%s, 0, 0, '', NULL)""", (tld,))
 
     print 'TLDs: Inserted %d row(s) (out of %d TLDs)' % (tld_insertion_count, len(tlds))
 
