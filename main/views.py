@@ -385,23 +385,28 @@ def project(request):
     if not request.user.is_authenticated() or request.method != 'GET':
         return redirect('/')
     
-    project = UserProject.objects.get(id=request.GET['id'])
-    # Does the user actually own this project?
-    if project is None or project.user_id != request.user.id:
+    try:
+        project = UserProject.objects.get(id=request.GET['id'])
+        # Does the user actually own this project?
+        if project is None or project.user_id != request.user.id:
+            request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
+            request.session['profile_messagetype'] = 'danger'
+            return redirect('/profile')
+
+        project_file = UploadedFile.objects.get(project_id=project.id)
+        project_domains = ProjectDomain.objects.filter(project_id=project.id).order_by('-is_checked', 'state', 'domain').exclude(state__in=['error', 'unregisterable'])
+        
+        completed_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True)
+        unregisterable_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='unregisterable')
+        error_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='error')
+
+        progress = '%.2f' % ((len(completed_domains)*100.0)/len(ProjectDomain.objects.all()))
+
+        return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : project_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains })
+    except UserProject.DoesNotExist as e:
         request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
         request.session['profile_messagetype'] = 'danger'
         return redirect('/profile')
-
-    project_file = UploadedFile.objects.get(project_id=project.id)
-    project_domains = ProjectDomain.objects.filter(project_id=project.id).order_by('-is_checked', 'state', 'domain').exclude(state__in=['error', 'unregisterable'])
-    
-    completed_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True)
-    unregisterable_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='unregisterable')
-    error_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='error')
-
-    progress = '%.2f' % ((len(completed_domains)*100.0)/len(ProjectDomain.objects.all()))
-
-    return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : project_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains })
 
 def manual_update_tlds(request):
     if not request.user.is_authenticated() and request.user.is_superuser:
