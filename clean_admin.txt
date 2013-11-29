@@ -1,0 +1,18 @@
+live_api_url	https://api.namecheap.com/xml.response	string	
+live_api_key	NAMECHEAP_API_KEY	string	
+live_api_user	username	string	
+live_api_username	username	string	
+live_api_wait_time	30	integer	
+live_api_urls_per_request	20	integer	
+
+sandbox_api_url	https://api.sandbox.namecheap.com/xml.response	string	
+sandbox_api_key	NAMECHEAP_API_KEY	string	
+sandbox_api_user	username	string	
+sandbox_api_username	username	string	
+sandbox_api_wait_time	5	integer	
+sandbox_api_urls_per_request	5	integer	
+
+client_ip	127.0.0.1	string	
+
+use_live_api	false	boolean	
+

@@ -11,9 +11,11 @@ db = {
 
 tld_table = 'main_tld'
 exclusion_table = 'main_excludeddomain'
+settings_table = 'main_adminsetting'
 
 tld_filename = 'tld_list.txt'
 exclusion_filename = 'exclusion_domains.txt'
+settings_filename = 'clean_admin.txt'
 
 def main():
     tldf = open(tld_filename)
@@ -23,6 +25,10 @@ def main():
     exf = open(exclusion_filename)
     exl = [line.strip() for line in exf]
     exf.close()
+
+    sf = open(settings_filename)
+    ss = [line.strip() for line in sf]
+    sf.close()
 
     conn = MySQLdb.connect(user=db['username'], passwd=db['password'], host=db['host'], port=db['port'], db=db['name'])
 
@@ -45,6 +51,24 @@ def main():
             c.execute("""INSERT INTO """+exclusion_table+""" (domain) VALUES(%s)""", (exd,))
 
     print 'Excluded domains: Inserted %d row(s) (out of %d listed domains)' % (ex_insertion_count, len(exl))
+
+    s_insertion_count = 0
+    for s in ss:
+        if len(s) == 0:
+            continue
+        vals = s.split('\t')
+        key = vals[0]
+        value = vals[1]
+        valtype = vals[2]
+        choices = None
+        if len(vals) > 3:
+            choices = vals[4]
+        c.execute("""SELECT COUNT(*) FROM """+settings_table+""" WHERE `key` = %s""", (key,))
+        if c.fetchone()[0] == 0:
+            s_insertion_count += 1
+            c.execute('''INSERT INTO '''+settings_table+''' (`key`, `value`, `type`, `choices`) VALUES(%s, %s, %s, %s)''', (key, value, valtype, choices))
+
+    print 'Admin settings: Inserted %d row(s) (out of %d listed settings)' % (s_insertion_count, len(ss))
 
     conn.commit()
 

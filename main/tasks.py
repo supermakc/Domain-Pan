@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
-from main.models import ProjectDomain, UserProject, UploadedFile, TLD
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting
 
 import requests, lockfile
 
@@ -23,9 +23,10 @@ NAMECHEAP_PARAMS = [
     ('ClientIp', settings.NAMECHEAP_IP),
 ]
 
+# TODO: Deal with stale locks
 class NamecheapLock():
     def __init__(self):
-        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), 'namecheap.lock'))
+        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), 'namecheap'))
 
     def acquire(self):
         self.lockfile.acquire()
@@ -35,9 +36,9 @@ class NamecheapLock():
 
 @app.task
 def update_tlds():
-    params = copy.deepcopy(NAMECHEAP_PARAMS)
+    params = AdminSetting.get_api_params()
     params.append(('Command', 'namecheap.domains.gettldlist'))
-    r = requests.get(settings.NAMECHEAP_API_URL, params=params)
+    r = requests.get(AdminSettings.get_api_url(), params=params)
 
     rtree = ElementTree.fromstring(r.text)
     rels = rtree.findall('./{http://api.namecheap.com/xml.response}CommandResponse/{http://api.namecheap.com/xml.response}Tlds/{http://api.namecheap.com/xml.response}Tld')
@@ -80,9 +81,6 @@ def parse_namecheap_result(rstring):
 
 @app.task
 def check_project_domains(project_id):
-    # domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)
-    # print len(domain_list)
-
     lock = NamecheapLock()
     if settings.DEBUG:
         logging.basicConfig() 
@@ -92,61 +90,57 @@ def check_project_domains(project_id):
         requests_log.propagate = True
     while True:
         lock.acquire()
-        """
-        while not cache.add(NAMECHEAP_LOCK_ID, 'true', MINIMUM_WAIT_TIME*4):
-            pass
-        """
-        domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)[:settings.NAMECHEAP_URLS_PER_REQ]
-        if len(domain_list) == 0:
-            project = UserProject.objects.get(id=project_id)
-            project.state = 'completed'
-            project.updated = timezone.now()
-            project.save()
+        try:
+            domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)[:AdminSetting.get_api_urls_per_request()]
+            if len(domain_list) == 0:
+                project = UserProject.objects.get(id=project_id)
+                project.state = 'completed'
+                project.updated = timezone.now()
+                project.save()
 
-            pfile = UploadedFile.objects.get(project_id=project.id)
-            reply_address = 'noreply@domain.com'
-            server_address = 'http://dc.domain.com'
-            messagebody = ('The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
-                          '%s/project?id=%d\n\n' + \
-                          'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
-            user = User.objects.get(id=project.user_id)
-            send_mail('Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
-            lock.release()
-            # cache.delete(NAMECHEAP_LOCK_ID)
-            break
+                pfile = UploadedFile.objects.get(project_id=project.id)
+                reply_address = 'noreply@domain.com'
+                server_address = 'http://dc.domain.com'
+                messagebody = ('The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
+                              '%s/project?id=%d\n\n' + \
+                              'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
+                user = User.objects.get(id=project.user_id)
+                send_mail('Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
+                lock.release()
+                break
 
-        domain_str = ','.join([pd.domain for pd in domain_list])
-        # domain_str='homeschooling.com,omnibooksonline.com'
-        params = copy.deepcopy(NAMECHEAP_PARAMS)
-        params.append(('Command', 'namecheap.domains.check'))
-        params.append(('DomainList', domain_str))
-        print domain_str
-        print params
-        r = requests.get(settings.NAMECHEAP_API_URL, params=params)
-        print r.url
-        print r.headers
-        rxml = r.text
-        results = parse_namecheap_result(rxml)
-        for result in results:
-            print 'Finding match for "%s"...' % (result['domain'])
+            domain_str = ','.join([pd.domain for pd in domain_list])
+            params = AdminSetting.get_api_params()
+            params.append(('Command', 'namecheap.domains.check'))
+            params.append(('DomainList', domain_str))
+            print domain_str
+            print params
+            r = requests.get(AdminSetting.get_api_url(), params=params)
+            print r.url
+            print r.headers
+            rxml = r.text
+            results = parse_namecheap_result(rxml)
+            for result in results:
+                print 'Finding match for "%s"...' % (result['domain'])
+                for domain in domain_list:
+                    if result['domain'] == domain.domain:
+                        print '   Match found with domain name "%s"' % (domain.domain)
+                        domain.state = 'available' if result['available'] else 'unavailable'
+                        break
+
+            # TODO: Remaining domains throw errors, but we ignore these for now
             for domain in domain_list:
-                if result['domain'] == domain.domain:
-                    print '   Match found with domain name "%s"' % (domain.domain)
-                    domain.state = 'available' if result['available'] else 'unavailable'
-                    break
+                if domain.state == 'unchecked':
+                    domain.state = 'error'
+                    domain.error = 'Unable to determine TLD'
+                domain.is_checked = True
+                domain.last_checked = timezone.now()
+                domain.save()
 
-        # TODO: Remaining domains throw errors, but we ignore these for now
-        for domain in domain_list:
-            if domain.state == 'unchecked':
-                domain.state = 'error'
-                domain.error = 'Unable to determine TLD'
-            domain.is_checked = True
-            domain.last_checked = timezone.now()
-            domain.save()
-
-        time.sleep(settings.NAMECHEAP_WAIT_TIME)
-        lock.release()
-        # cache.delete(NAMECHEAP_LOCK_ID)
-        # break
+            time.sleep(AdminSetting.get_api_wait_time())
+            lock.release()
+        except Exception as e:
+            lock.release()
+            raise
 
 

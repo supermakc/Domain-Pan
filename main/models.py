@@ -74,4 +74,60 @@ class ProjectTask(models.Model):
     celery_id = models.CharField(max_length=255)
     type = models.CharField(max_length=20, choices=PROJ_TASK_TYPES)
 
+# A single administrator-changeable settings
+class AdminSetting(models.Model):
+    FIELD_TYPES = (
+        ('string', 'String'),
+        ('integer', 'Number'),
+        ('choice', 'Choice'),
+        ('boolean', 'Boolean'),
+        ('float', 'Float'))
+    key = models.CharField(max_length=255, primary_key=True)
+    value = models.CharField(max_length=255)
+    type = models.CharField(max_length=20, choices=FIELD_TYPES)
+    choices = models.TextField(blank=True, null=True)
 
+    @classmethod
+    def get_value(cls, key):
+        ads = AdminSetting.objects.get(key=key)
+        if ads.type == 'integer':
+            return int(ads.value)
+        elif ads.type == 'boolean':
+            return True if ads.value == 'true' else False
+        elif ads.type == 'float':
+            return float(ads.value)
+        else:
+            return ads.value
+
+    @classmethod
+    def get_api_params(cls):
+        prefix = 'sandbox_'
+        if AdminSetting.get_value('use_live_api'):
+            prefix = 'live_'
+        params=[
+            ('ApiUser', AdminSetting.get_value(prefix+'api_user')),
+            ('ApiKey', AdminSetting.get_value(prefix+'api_key')),
+            ('UserName', AdminSetting.get_value(prefix+'api_username')),
+            ('ClientIp', AdminSetting.get_value('client_ip'))]
+        return params
+
+    @classmethod
+    def get_api_url(cls):
+        if AdminSetting.get_value('use_live_api'):
+            return AdminSetting.get_value('live_api_url')
+        else:
+            return AdminSetting.get_value('sandbox_api_url')
+            
+    @classmethod
+    def get_api_wait_time(cls):
+        if AdminSetting.get_value('use_live_api'):
+            return AdminSetting.get_value('live_api_wait_time')
+        else:
+            return AdminSetting.get_value('sandbox_api_wait_time')
+
+    @classmethod
+    def get_api_urls_per_request(cls):
+        if AdminSetting.get_value('use_live_api'):
+            return AdminSetting.get_value('live_api_urls_per_request')
+        else:
+            return AdminSetting.get_value('sandbox_api_urls_per_request')

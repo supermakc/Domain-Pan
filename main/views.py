@@ -12,7 +12,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from main.forms import URLFileForm
-from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain
+from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain, AdminSetting
 from main.tasks import check_project_domains, update_tlds
 
 import os, logging, re, json, string, random
@@ -186,9 +186,12 @@ def profile(request):
     exclusions = None
     preserved = None
     staff = None
+    admin = {}
     if request.user.is_staff:
         exclusions = '\n'.join([e.domain for e in ExcludedDomain.objects.all()])
         preserved = '\n'.join([p.domain for p in PreservedDomain.objects.all()])
+        for ads in AdminSetting.objects.all():
+            admin[ads.key] = ads.value
     if request.user.is_superuser:
         staff = '\n'.join([u.username for u in User.objects.filter(is_staff=True)])
     return render(request, 
@@ -201,7 +204,8 @@ def profile(request):
             'profile_messagetype' : profile_messagetype, 
             'exclusions' : exclusions, 
             'preserved' : preserved,
-            'staff' : staff})
+            'staff' : staff,
+            'admin' : admin})
 
 def upload_project(request):
     if not request.user.is_authenticated():
@@ -312,6 +316,21 @@ def update_admin(request):
         pd.save()
 
     if request.user.is_superuser:
+        ads = AdminSetting.objects.all()
+
+        for ad in ads:
+            if ad.type == 'boolean':
+                ad.value = 'true' if request.POST.has_key(ad.key) else 'false'
+                ad.save()
+            elif request.POST.has_key(ad.key):
+                if len(request.POST[ad.key]) == 0:
+                    request.session['profile_message'] = '<b>Error updating settings:</b> Field "%s" cannot be blank' % ad.key
+                    request.session['profile_messagetype'] = 'error'
+                    return redirect('/')
+                else:
+                    ad.value = request.POST[ad.key]
+                    ad.save()
+
         staff = request.POST['staff']
         staff_list = []
         for s in staff.split('\n'):
