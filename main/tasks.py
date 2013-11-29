@@ -1,31 +1,37 @@
 from __future__ import absolute_import
 from xml.etree import ElementTree
-from multiprocessing import Lock
-import copy, time, logging, json
+import os, copy, time, logging, json, tempfile, sqlite3
 
 from django.db import transaction
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.mail import send_mail
-from main.models import ProjectDomain, UserProject, UploadedFile, TLD
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
-import requests
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD
+
+import requests, lockfile
 
 NAMECHEAP_LOCK_ID = 'namecheap-lock'
 NAMECHEAP_PARAMS = [
-        ('ApiUser', settings.NAMECHEAP_API_USER),
-        ('ApiKey', settings.NAMECHEAP_API_KEY),
-        ('UserName', settings.NAMECHEAP_API_USERNAME),
-        ('ClientIp', settings.NAMECHEAP_IP),
-        # ('Command', 'namecheap.domains.check'),
-        ]
-        # ('DomainList', '')]
+    ('ApiUser', settings.NAMECHEAP_API_USER),
+    ('ApiKey', settings.NAMECHEAP_API_KEY),
+    ('UserName', settings.NAMECHEAP_API_USERNAME),
+    ('ClientIp', settings.NAMECHEAP_IP),
+]
 
-namecheap_lock = Lock()
+class NamecheapLock():
+    def __init__(self):
+        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), 'namecheap.lock'))
+
+    def acquire(self):
+        self.lockfile.acquire()
+
+    def release(self):
+        self.lockfile.release()
 
 @app.task
 def update_tlds():
@@ -86,6 +92,7 @@ def check_project_domains(project_id):
     # domain_list = ProjectDomain.objects.filter(project=project_id, is_checked=False)
     # print len(domain_list)
 
+    lock = NamecheapLock()
     if settings.DEBUG:
         logging.basicConfig() 
         logging.getLogger().setLevel(logging.DEBUG)
@@ -93,7 +100,7 @@ def check_project_domains(project_id):
         requests_log.setLevel(logging.DEBUG)
         requests_log.propagate = True
     while True:
-        namecheap_lock.acquire()
+        lock.acquire()
         """
         while not cache.add(NAMECHEAP_LOCK_ID, 'true', MINIMUM_WAIT_TIME*4):
             pass
@@ -113,7 +120,7 @@ def check_project_domains(project_id):
                           'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
             user = User.objects.get(id=project.user_id)
             send_mail('Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
-            namecheap_lock.release()
+            lock.release()
             # cache.delete(NAMECHEAP_LOCK_ID)
             break
 
@@ -147,7 +154,7 @@ def check_project_domains(project_id):
             domain.save()
 
         time.sleep(settings.NAMECHEAP_WAIT_TIME)
-        namecheap_lock.release()
+        lock.release()
         # cache.delete(NAMECHEAP_LOCK_ID)
         # break
 
