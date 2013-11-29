@@ -400,7 +400,7 @@ def project(request):
         unregisterable_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='unregisterable')
         error_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='error')
 
-        progress = '%.2f' % ((len(completed_domains)*100.0)/len(ProjectDomain.objects.all()))
+        progress = '%.2f' % ((len(completed_domains)*100.0)/len(ProjectDomain.objects.filter(project_id=project.id)))
 
         return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : project_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains })
     except UserProject.DoesNotExist as e:
