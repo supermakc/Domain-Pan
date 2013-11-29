@@ -22,12 +22,12 @@
     <table class="table table-striped">
       <thead>
         <tr>
-          <th>Filename</th><th>Uploaded</th><th># Domains</th><th>Completed</th><th>Action</th>
+          <th>Filename</th><th>Uploaded</th><th># Domains</th><th>Progress</th><th>Action</th>
         </tr>
       </thead>
       {% for project in projects %}
         <tr {% if project.state == 'completed'  %}class="success"{% endif %}>
-          <td>{{ project.file.filename }}</td><td>{{ project.created }}</td><td>{{ project.domains|length }}</td><td>{% ifequal project.state 'completed' %}Yes{% else %}No{% endifequal %}</td>
+          <td>{{ project.file.filename }}</td><td>{{ project.created }}</td><td>{{ project.domains|length }}</td><td>{% ifequal project.state 'completed' %}<b>{{ project.percent_complete_str }}</b>{% else %}{{ project.percent_complete_str }}{% endifequal %}%</td>
           <td>
             <a role="button" class="btn btn-info btn-xs" href="/project?id={{ project.id }}">
 	      {% ifequal project.state 'completed' %}

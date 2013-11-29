@@ -61,15 +61,6 @@ def update_tlds():
 
     print 'Finished processing tlds.'
 
-    """
-    for rel in rels:
-        print '  %s : registerable: %s, type: %s, description: %s' % \
-            (rel.attrib['Name'],
-             rel.attrib['IsApiRegisterable'],
-             rel.attrib['Type'],
-             rel.text)
-    """
-
 def parse_namecheap_result(rstring):
     print rstring
     tree = ElementTree.fromstring(rstring)

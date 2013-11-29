@@ -33,6 +33,14 @@ class UserProject(models.Model):
     error = models.TextField(null=True)
     updated = models.DateTimeField()
 
+    def percent_complete(self):
+        total_domains = len(self.projectdomain_set.all())*0.01
+        checked_domains = len(self.projectdomain_set.filter(is_checked=True))
+        return checked_domains / total_domains
+
+    def percent_complete_str(self):
+        return '%.2f' % self.percent_complete()
+
 # Uploaded project files
 class UploadedFile(models.Model):
     project = models.ForeignKey(UserProject)

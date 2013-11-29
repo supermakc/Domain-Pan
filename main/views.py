@@ -32,6 +32,9 @@ def load_tlds():
 def load_exclusions():
     return [exclusion.domain for exclusion in ExcludedDomain.objects.all()]
 
+def load_preservations():
+    return [preservation.domain for preservation in PreservedDomain.objects.all()]
+
 def deep_delete_project(project):
     uploaded_file = UploadedFile.objects.get(project_id=project.id)
     uploaded_file.delete()
@@ -47,7 +50,8 @@ def remove_subdomains(url, tlds):
     if schemecheck_re.match(url) == None:
         url = '//'+url
 
-    url_elements = urlparse(url, scheme='http')[1].split('.')
+    full_domain = urlparse(url, scheme='http')[1]
+    url_elements = full_domain.split('.')
     if len(url_elements) > 0:
         pe = portend_re.match(url_elements[-1])
         if pe is not None:
@@ -67,11 +71,11 @@ def remove_subdomains(url, tlds):
 
         # match tlds: 
         if (exception_candidate in tlds):
-            return (exception_candidate, ".".join(url_elements[i:])) 
+            return (exception_candidate, ".".join(url_elements[i:]), full_domain) 
         elif (candidate in tlds):
-            return (candidate, ".".join(url_elements[i-1:]))
+            return (candidate, ".".join(url_elements[i-1:]), full_domain)
         elif (wildcard_candidate in tlds):
-            return (wildcard_candidate, ".".join(url_elements[i-1:]))
+            return (wildcard_candidate, ".".join(url_elements[i-1:]), full_domain)
 
     logger.debug(url_elements)
     raise ValueError("Domain not in global list of TLDs")
@@ -79,8 +83,8 @@ def remove_subdomains(url, tlds):
 def extract_domains(file_contents, fail_email, filename):
     tlds = load_tlds()
     exclusions = load_exclusions()
+    preservations = load_preservations()
     domain_list = set()
-    excluded_domains = set()
     ln = 0
     failed_lines = []
     failed_domains = []
@@ -96,7 +100,7 @@ def extract_domains(file_contents, fail_email, filename):
                 raise ValueError('IP only - no domain to extract')
             elif url.startswith('javascript:'):
                 raise ValueError('Javascript hook')
-            (tld_match, domain) = remove_subdomains(url.strip(), tlds)
+            (tld_match, domain, full_domain) = remove_subdomains(url.strip(), tlds)
             tld = TLD.objects.get(domain=tld_match)
             if not tld.is_recognized:
                 failed_domains.append((domain, 'unregisterable', 'Unregisterable top-level domain (%s)' % tld_match))
@@ -104,11 +108,12 @@ def extract_domains(file_contents, fail_email, filename):
                 failed_domains.append((domain, 'unregisterable', 'Domain type recognized but cannot be registered through the API (%s)'% tld_match))
             elif domain in exclusions:
                 failed_domains.append((domain, 'unregisterable', 'Domain explicitly excluded (%s)' % domain))
+            elif domain in preservations:
+                failed_domains.append((full_domain, 'special', 'Domain is reserved for special processing (%s)' % domain))
             else:
                 domain_list.add(domain)
         except ValueError as e:
             failed_lines.append((ln, url.strip(), str(e)))
-
 
     if len(failed_lines) > 0:
         error_email = 'The following domains failed while reading the file "%s":\n\n' % filename
@@ -116,7 +121,6 @@ def extract_domains(file_contents, fail_email, filename):
             error_email += 'Line %d: %s (%s)\n' % (fd[0], fd[1], fd[2])
         logger.debug(error_email)
         send_mail('Domain Checker: Failed Domains', error_email, 'noreply@domain.com', [fail_email])
-    logger.debug('Excluded (%d) domains: [%s]' % (len(excluded_domains), ', '.join(excluded_domains)))
     return (domain_list, failed_domains, filedata)
 
 def index(request):
@@ -394,15 +398,18 @@ def project(request):
             return redirect('/profile')
 
         project_file = UploadedFile.objects.get(project_id=project.id)
-        project_domains = ProjectDomain.objects.filter(project_id=project.id).order_by('-is_checked', 'state', 'domain').exclude(state__in=['error', 'unregisterable'])
-        
-        completed_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True)
-        unregisterable_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='unregisterable')
-        error_domains = ProjectDomain.objects.filter(project_id=project.id, is_checked=True, state='error')
 
-        progress = '%.2f' % ((len(completed_domains)*100.0)/len(ProjectDomain.objects.filter(project_id=project.id)))
+        project_domains = project.projectdomain_set.all().order_by('-is_checked', 'state', 'domain')
+        checkable_domains = project_domains.exclude(state__in=['error', 'unregisterable', 'special'])
+        completed_domains = project_domains.filter(is_checked=True)
+        unregisterable_domains = completed_domains.filter(state='unregisterable')
+        special_domains = project_domains.filter(state='special')
+        error_domains = project_domains.filter(state='error')
 
-        return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : project_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains })
+        # progress = '%.2f' % ((len(completed_domains)*100.0)/len(project_domains))
+        progress = '%.2f' % project.percent_complete()
+
+        return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : checkable_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains, 'specials' : special_domains })
     except UserProject.DoesNotExist as e:
         request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
         request.session['profile_messagetype'] = 'danger'

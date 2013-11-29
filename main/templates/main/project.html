@@ -64,6 +64,23 @@
 </table>
 {% endif %}
 
+{% if special|length > 0 %}
+<h3>Special Domains</h3>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Domain</th><th>Reason</th>
+    </tr>
+  </thead>
+  {% for domain in specials %}
+  <tr> 
+    <td>{{ domain.domain }}</td><td>{{ domain.error }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
 {% if errors|length > 0 %}
 <h3>Errors</h3>
 
