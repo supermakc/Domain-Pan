@@ -11,13 +11,21 @@
 
 <h3>Summary</h3>
 
-<p>Complete: {{ project.is_complete }}
+{% if project.state == 'error' %}
+<div class="alert alert-danger">
+  <p><b>This project has encountered an error and will not progress.</b> Details:</p>
+  <p>&nbsp;<br/>&nbsp;&nbsp;<em>{{ project.error }}.</em><br />&nbsp;</p>
+  <p>If you require further assistance, please contact the server administrator.</p>
+</div>
+{% endif %}
+
+<p>Status: {{ project.get_state_display }}
 <p>Progress: <b>{{ progress }}%</b></p>
-<p>Number of domains: {{ domains|length }}</p>
+<p>Domains to check: {{ domains|length }}</p>
 <p>Last updated: {{ project.updated }}</p>
 
 <hr />
-<h3>Domain Listing</h3>
+<h3>Domain Check Results</h3>
 
 <table class="table table-striped">
   <thead>
