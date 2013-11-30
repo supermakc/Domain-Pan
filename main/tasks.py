@@ -38,7 +38,7 @@ class NamecheapLock():
 def update_tlds():
     params = AdminSetting.get_api_params()
     params.append(('Command', 'namecheap.domains.gettldlist'))
-    r = requests.get(AdminSettings.get_api_url(), params=params)
+    r = requests.get(AdminSetting.get_api_url(), params=params)
 
     rtext = r.text
     print rtext
@@ -62,6 +62,12 @@ def update_tlds():
                 tld.type = 'unknown'
                 tld.description = None
             tld.save()
+
+        for ncd, rel in rels.items():
+            if len(TLD.objects.filter(domain=ncd)) == 0:
+                new_tld = TLD(domain=ncd, is_recognized=True, is_api_registerable=(rel.attrib['IsApiRegisterable'] == True), description=rel.text, type=rel.attrib['Type'])
+                new_tld.save()
+                print 'New TLD added: %s' % ncd
 
     print 'Finished processing tlds.'
 

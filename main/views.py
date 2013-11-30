@@ -74,8 +74,11 @@ def remove_subdomains(url, tlds):
             return (exception_candidate, ".".join(url_elements[i:]), full_domain) 
         elif (candidate in tlds):
             return (candidate, ".".join(url_elements[i-1:]), full_domain)
+        """
+        # The wildcard format plays havoc with the way NameCheap TLDs are processed
         elif (wildcard_candidate in tlds):
             return (wildcard_candidate, ".".join(url_elements[i-1:]), full_domain)
+        """
 
     logger.debug(url_elements)
     raise ValueError("Domain not in global list of TLDs")
@@ -103,9 +106,9 @@ def extract_domains(file_contents, fail_email, filename):
             (tld_match, domain, full_domain) = remove_subdomains(url.strip(), tlds)
             tld = TLD.objects.get(domain=tld_match)
             if not tld.is_recognized:
-                failed_domains.append((domain, 'unregisterable', 'Unregisterable top-level domain (%s)' % tld_match))
+                failed_domains.append((domain, 'unregisterable', 'Unregisterable TLD (%s)' % tld_match))
             elif not tld.is_api_registerable:
-                failed_domains.append((domain, 'unregisterable', 'Domain type recognized but cannot be registered through the API (%s)'% tld_match))
+                failed_domains.append((domain, 'unregisterable', 'TLD recognized but cannot be registered through the API (%s)'% tld_match))
             elif domain in exclusions:
                 failed_domains.append((domain, 'unregisterable', 'Domain explicitly excluded (%s)' % domain))
             elif domain in preservations:
