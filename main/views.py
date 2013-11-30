@@ -92,6 +92,7 @@ def extract_domains(file_contents, fail_email, filename):
     failed_lines = []
     failed_domains = []
     filedata = file_contents.read()
+    failed_set = set()
     for url in filedata.split('\n'):
         ln += 1
         if len(url) == 0 or url[0] in '/\n':
@@ -105,14 +106,20 @@ def extract_domains(file_contents, fail_email, filename):
                 raise ValueError('Javascript hook')
             (tld_match, domain, full_domain) = remove_subdomains(url.strip(), tlds)
             tld = TLD.objects.get(domain=tld_match)
+            if domain in failed_set:
+                continue
             if not tld.is_recognized:
                 failed_domains.append((domain, 'unregisterable', 'Unregisterable TLD (%s)' % tld_match))
+                failed_set.add(domain)
             elif not tld.is_api_registerable:
                 failed_domains.append((domain, 'unregisterable', 'TLD recognized but cannot be registered through the API (%s)'% tld_match))
+                failed_set.add(domain)
             elif domain in exclusions:
                 failed_domains.append((domain, 'unregisterable', 'Domain explicitly excluded (%s)' % domain))
+                failed_set.add(domain)
             elif domain in preservations:
                 failed_domains.append((full_domain, 'special', 'Domain is reserved for special processing (%s)' % domain))
+                failed_set.add(domain)
             else:
                 domain_list.add(domain)
         except ValueError as e:
