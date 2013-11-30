@@ -14,7 +14,7 @@ class Migration(SchemaMigration):
             ('domain', self.gf('django.db.models.fields.CharField')(max_length=50)),
             ('is_recognized', self.gf('django.db.models.fields.BooleanField')(default=False)),
             ('is_api_registerable', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('description', self.gf('django.db.models.fields.CharField')(default=None, max_length=255, null=True)),
+            ('description', self.gf('django.db.models.fields.CharField')(default=None, max_length=255, null=True, blank=True)),
             ('type', self.gf('django.db.models.fields.CharField')(max_length=50)),
         ))
         db.send_create_signal(u'main', ['TLD'])
@@ -39,7 +39,7 @@ class Migration(SchemaMigration):
             ('user', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['auth.User'])),
             ('created', self.gf('django.db.models.fields.DateTimeField')(auto_now_add=True, blank=True)),
             ('state', self.gf('django.db.models.fields.CharField')(max_length=20)),
-            ('error', self.gf('django.db.models.fields.TextField')(null=True)),
+            ('error', self.gf('django.db.models.fields.TextField')(default=None, null=True, blank=True)),
             ('updated', self.gf('django.db.models.fields.DateTimeField')()),
         ))
         db.send_create_signal(u'main', ['UserProject'])
@@ -62,7 +62,7 @@ class Migration(SchemaMigration):
             ('subdomains_preserved', self.gf('django.db.models.fields.BooleanField')()),
             ('is_checked', self.gf('django.db.models.fields.BooleanField')()),
             ('state', self.gf('django.db.models.fields.CharField')(max_length=20)),
-            ('error', self.gf('django.db.models.fields.TextField')(null=True)),
+            ('error', self.gf('django.db.models.fields.TextField')(default=None, null=True, blank=True)),
             ('last_checked', self.gf('django.db.models.fields.DateTimeField')()),
         ))
         db.send_create_signal(u'main', ['ProjectDomain'])
@@ -81,7 +81,7 @@ class Migration(SchemaMigration):
             ('key', self.gf('django.db.models.fields.CharField')(max_length=255, primary_key=True)),
             ('value', self.gf('django.db.models.fields.CharField')(max_length=255)),
             ('type', self.gf('django.db.models.fields.CharField')(max_length=20)),
-            ('choices', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
+            ('choices', self.gf('django.db.models.fields.TextField')(default=None, null=True, blank=True)),
         ))
         db.send_create_signal(u'main', ['AdminSetting'])
 
@@ -151,7 +151,7 @@ class Migration(SchemaMigration):
         },
         u'main.adminsetting': {
             'Meta': {'object_name': 'AdminSetting'},
-            'choices': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
+            'choices': ('django.db.models.fields.TextField', [], {'default': 'None', 'null': 'True', 'blank': 'True'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '255', 'primary_key': 'True'}),
             'type': ('django.db.models.fields.CharField', [], {'max_length': '20'}),
             'value': ('django.db.models.fields.CharField', [], {'max_length': '255'})
@@ -169,7 +169,7 @@ class Migration(SchemaMigration):
         u'main.projectdomain': {
             'Meta': {'object_name': 'ProjectDomain'},
             'domain': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
-            'error': ('django.db.models.fields.TextField', [], {'null': 'True'}),
+            'error': ('django.db.models.fields.TextField', [], {'default': 'None', 'null': 'True', 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'is_checked': ('django.db.models.fields.BooleanField', [], {}),
             'last_checked': ('django.db.models.fields.DateTimeField', [], {}),
@@ -187,7 +187,7 @@ class Migration(SchemaMigration):
         },
         u'main.tld': {
             'Meta': {'object_name': 'TLD'},
-            'description': ('django.db.models.fields.CharField', [], {'default': 'None', 'max_length': '255', 'null': 'True'}),
+            'description': ('django.db.models.fields.CharField', [], {'default': 'None', 'max_length': '255', 'null': 'True', 'blank': 'True'}),
             'domain': ('django.db.models.fields.CharField', [], {'max_length': '50'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'is_api_registerable': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
@@ -204,7 +204,7 @@ class Migration(SchemaMigration):
         u'main.userproject': {
             'Meta': {'object_name': 'UserProject'},
             'created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
-            'error': ('django.db.models.fields.TextField', [], {'null': 'True'}),
+            'error': ('django.db.models.fields.TextField', [], {'default': 'None', 'null': 'True', 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'state': ('django.db.models.fields.CharField', [], {'max_length': '20'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {}),
