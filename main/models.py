@@ -8,7 +8,7 @@ class TLD(models.Model):
     domain = models.CharField(max_length=50)
     is_recognized = models.BooleanField(default=False)
     is_api_registerable = models.BooleanField(default=False)
-    description = models.CharField(max_length=255, null=True, default=None)
+    description = models.CharField(max_length=255, blank=True, null=True, default=None)
     type = models.CharField(max_length=50)
 
 # Domains which should be automatically excluded (e.g. common domains like facebook.com, google.com)
@@ -30,7 +30,8 @@ class UserProject(models.Model):
     user = models.ForeignKey(User)
     created = models.DateTimeField(auto_now_add=True)
     state = models.CharField(max_length=20, choices=PROJECT_STATES)
-    error = models.TextField(null=True)
+    error = models.TextField(blank=True, null=True, default=None)
+    parse_errors = models.TextField(blank=True, null=True, default=None)
     updated = models.DateTimeField()
 
     def name(self):
@@ -65,7 +66,7 @@ class ProjectDomain(models.Model):
     subdomains_preserved = models.BooleanField()
     is_checked = models.BooleanField()
     state = models.CharField(max_length=20, choices=DOMAIN_STATES)
-    error = models.TextField(null=True)
+    error = models.TextField(blank=True, null=True, default=None)
     last_checked = models.DateTimeField()
 
 # Association between projects and background(Celery) tasks
@@ -88,7 +89,7 @@ class AdminSetting(models.Model):
     key = models.CharField(max_length=255, primary_key=True)
     value = models.CharField(max_length=255)
     type = models.CharField(max_length=20, choices=FIELD_TYPES)
-    choices = models.TextField(blank=True, null=True)
+    choices = models.TextField(blank=True, null=True, default=None)
 
     @classmethod
     def get_value(cls, key):
