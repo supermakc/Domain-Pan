@@ -43,6 +43,9 @@ def update_tlds():
     rtext = r.text
     print rtext
 
+    # send_mail('Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
+    send_mail('Domain Checker - TLD Update', 'The following response was received from the TLD update (using %s):\n\n%s' % (AdminSetting.get_api_url(), rtext), AdminSetting.get_value('noreply_address'), [AdminSetting.get_value('admin_address')])
+
     rtree = ElementTree.fromstring(rtext)
     rels = rtree.findall('./{http://api.namecheap.com/xml.response}CommandResponse/{http://api.namecheap.com/xml.response}Tlds/{http://api.namecheap.com/xml.response}Tld')
 

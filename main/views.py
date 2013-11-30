@@ -27,7 +27,7 @@ iponly_re = re.compile(r'[^\.]*?//([0-9]{1,3}\.){3}[0-9]{1,3}[/$]')
 portend_re = re.compile(r'(.*?):[0-9]+$')
 
 def load_tlds():
-    return [tld.domain for tld in TLD.objects.all()]
+    return [tld.domain for tld in TLD.objects.all().order_by('-is_recognized','-is_api_registerable')]
 
 def load_exclusions():
     return [exclusion.domain for exclusion in ExcludedDomain.objects.all()]
