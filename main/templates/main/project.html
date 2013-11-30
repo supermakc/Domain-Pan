@@ -106,6 +106,12 @@
 </table>
 {% endif %}
 
+{% if project.parse_errors %}
+<h3>Parse Errors</h3>
+<p>The following errors were encountered when parsing the submitted project file:</p>
+<p><pre class=".pre-scrollable">{{ project.parse_errors }}</pre></p>
+{% endif %}
+
 <p><a href="/profile">Return to profile</a>.</p>
 </div>
 

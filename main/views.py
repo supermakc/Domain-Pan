@@ -131,7 +131,7 @@ def extract_domains(file_contents, fail_email, filename):
             error_email += 'Line %d: %s (%s)\n' % (fd[0], fd[1], fd[2])
         logger.debug(error_email)
         send_mail('Domain Checker: Failed Domains', error_email, 'noreply@domain.com', [fail_email])
-    return (domain_list, failed_domains, filedata)
+    return (domain_list, failed_domains, failed_lines, filedata)
 
 def index(request):
     fdir = os.path.dirname(__file__)
@@ -227,11 +227,17 @@ def upload_project(request):
         logger.debug('Attempting to upload project...')
         if uploadform.is_valid():
             logger.debug('Form is valid.')
-            (domain_list, failed_domains, filedata) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
+            (domain_list, failed_domains, failed_lines, filedata) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
             projectdomains = []
             with transaction.atomic():
                 project = UserProject(state='checking', updated=timezone.now(), user_id=request.user.id)
+                parse_error_str = ''
+                if len(failed_lines) > 0:
+                    for fd in failed_lines:
+                        parse_error_str += '%d: %s (%s)\n' % (fd[0], fd[1], fd[2])
+                    project.parse_errors = parse_error_str
                 project.save()
+
                 projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=filedata, project_id=project.id)
                 for domain in domain_list:
                     projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=False, state='unchecked', last_checked=timezone.now(), project_id=project.id))
