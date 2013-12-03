@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rm -f w1.log
+python manage.py celery multi start -A domain_checker -l info w1 
+

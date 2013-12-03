@@ -34,7 +34,7 @@ class NamecheapLock():
     def release(self):
         self.lockfile.release()
 
-@app.task
+@app.task(ignore_result=True)
 def update_tlds():
     params = AdminSetting.get_api_params()
     params.append(('Command', 'namecheap.domains.gettldlist'))
@@ -99,7 +99,7 @@ def parse_namecheap_result(rstring):
 
     return (domain_results, error_results)
 
-@app.task
+@app.task(ignore_result=True)
 def check_project_domains(project_id):
     lock = NamecheapLock()
     project = UserProject.objects.get(id=project_id)
