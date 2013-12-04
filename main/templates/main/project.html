@@ -14,7 +14,9 @@
 {% if project.state == 'error' %}
 <div class="alert alert-danger">
   <p><b>This project has encountered an error and will not progress.</b> Details:</p>
-  <p>&nbsp;<br/>&nbsp;&nbsp;<em>{{ project.error }}.</em><br />&nbsp;</p>
+  {% autoescape off %}
+  <p>&nbsp;<br/><em>{{ project_error_formatted }}</em><br />&nbsp;</p>
+  {% endautoescape %}
   <p>If you require further assistance, please contact the server administrator.</p>
 </div>
 {% endif %}

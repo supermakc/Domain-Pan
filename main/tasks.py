@@ -16,12 +16,6 @@ from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSett
 import requests, lockfile
 
 NAMECHEAP_LOCK_ID = 'namecheap-lock'
-NAMECHEAP_PARAMS = [
-    ('ApiUser', settings.NAMECHEAP_API_USER),
-    ('ApiKey', settings.NAMECHEAP_API_KEY),
-    ('UserName', settings.NAMECHEAP_API_USERNAME),
-    ('ClientIp', settings.NAMECHEAP_IP),
-]
 
 # TODO: Deal with stale locks
 class NamecheapLock():
@@ -30,6 +24,7 @@ class NamecheapLock():
 
     def acquire(self):
         self.lockfile.acquire()
+                
 
     def release(self):
         self.lockfile.release()
@@ -95,7 +90,7 @@ def parse_namecheap_result(rstring):
     for error in error_raw:
         error_results.append({
             'number' : error.attrib['Number'],
-            'description' : error.text})
+            'description' : error.text.strip()})
 
     return (domain_results, error_results)
 
@@ -114,7 +109,6 @@ def check_project_domains(project_id):
         try:
             domain_list = project.projectdomain_set.filter(is_checked=False)[:AdminSetting.get_api_urls_per_request()]
             if len(domain_list) == 0:
-                project = UserProject.objects.get(id=project_id)
                 project.state = 'completed'
                 project.updated = timezone.now()
                 project.save()
@@ -148,6 +142,12 @@ def check_project_domains(project_id):
             if sc == 200:
                 rxml = r.text
                 (domain_results, error_results) = parse_namecheap_result(rxml)
+                if len(domain_results) == 0 and len(error_results) > 0:
+                    # Assume catastrophic error
+                    error_str = 'the API backend returned the following unrecoverable error(s):\n\n'
+                    error_str += '\n'.join(['  %d: [%s] %s' % (i+1, er['number'], er['description']) for i, er in enumerate(error_results)])
+                    raise Exception(error_str)
+
                 for dr in domain_results:
                     print 'Finding match for "%s"...' % (dr['domain'])
                     if domains.has_key(dr['domain']):
@@ -173,7 +173,7 @@ def check_project_domains(project_id):
         except Exception as e:
             lock.release()
             project.state = 'error'
-            project.error = 'Error occurred while checking domains: %s' % str(e)
+            project.error = 'Error occurred while checking domains - %s' % str(e)
             project.save()
             reply_address = AdminSetting.get_value('noreply_address')
             server_address = AdminSetting.get_value('server_address')

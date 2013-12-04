@@ -7,7 +7,7 @@ import os, sys
 from celery import Celery
 from django.conf import settings
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'domain_checker.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'domain_checker.settings.production')
 
 app = Celery('domain_checker', broker='django://')
 app.config_from_object('django.conf:settings')

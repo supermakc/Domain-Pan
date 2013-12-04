@@ -444,7 +444,7 @@ def project(request):
         # progress = '%.2f' % ((len(completed_domains)*100.0)/len(project_domains))
         progress = '%.2f' % project.percent_complete()
 
-        return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : checkable_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains, 'specials' : special_domains })
+        return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : checkable_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains, 'specials' : special_domains, 'project_error_formatted' : None if project.error is None else project.error.replace('\n', '<br />') })
     except UserProject.DoesNotExist as e:
         request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
         request.session['profile_messagetype'] = 'danger'
