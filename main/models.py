@@ -40,7 +40,7 @@ class UserProject(models.Model):
     def percent_complete(self):
         total_domains = len(self.projectdomain_set.all())*0.01
         checked_domains = len(self.projectdomain_set.filter(is_checked=True))
-        return checked_domains / total_domains
+        return 100.0 if total_domains == 0 else checked_domains / total_domains
 
     def percent_complete_str(self):
         return '%.2f' % self.percent_complete()

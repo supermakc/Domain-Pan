@@ -27,6 +27,7 @@
 <p>Last updated: {{ project.updated }}</p>
 
 <hr />
+{% if domains|length > 0 %}
 <h3>Domain Check Results</h3>
 
 <table class="table table-striped">
@@ -56,6 +57,7 @@
     </tr>
   {% endfor %}
 </table>
+{% endif %}
 
 {% if unregisterables|length > 0 %}
 <h3>Unregisterable Domains</h3>

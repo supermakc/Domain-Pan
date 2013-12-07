@@ -245,13 +245,23 @@ def upload_project(request):
                     projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=True, state=state, last_checked=timezone.now(), project_id=project.id, error=error))
                 projectfile.save()
                 [pd.save() for pd in projectdomains]
+                if len(project.projectdomain_set.exclude(state='error')) == 0:
+                    project.state = 'completed'
+                    project.save()
+                    request.session['profile_message'] = 'Project "%s" successfully uploaded but no valid domains were found for checking.' % request.FILES['file'].name
+                    request.session['profile_messagetype'] = 'warning'
+                else:
+                    check_project_domains.delay(project.id)
+                    request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
+                    request.session['profile_messagetype'] = 'success'
+
+                return redirect('/profile')
         else:
             logger.debug(uploadform.errors)
+            request.session['profile_message'] = '<b>Project not uploaded.</b> The following errors occurred: %s' % uploadform.errors
+            request.session['profile_messagetype'] = 'danger'
+            return redirect('/profile')
 
-    check_project_domains.delay(project.id)
-    request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
-    request.session['profile_messagetype'] = 'success'
-    return redirect('/profile')
 
 def change_details(request):
     if not request.user.is_authenticated():
