@@ -129,7 +129,7 @@ def extract_domains(file_content, fail_email, filename):
         for fd in failed_lines:
             error_email += 'Line %d: %s (%s)\n' % (fd[0], fd[1], fd[2])
         logger.debug(error_email)
-        send_mail('Domain Checker: Failed Domains', error_email, 'noreply@domain.com', [fail_email])
+        send_mail('Domain Checker: Failed Domains', error_email, AdminSetting.get_value('noreply_address'), [fail_email])
     return (domain_list, failed_domains, failed_lines)
 
 def index(request):
