@@ -154,7 +154,8 @@ def check_project_domains(project_id):
                         d = domains[dr['domain']]
                         if dr['errorno'] != 0:
                             d.state = 'error'
-                            d.description = dr['description']
+                            d.error = 'API error (%d): %s' % (dr['errorno'], dr['description'])
+                            print dr
                         else:
                             d.state = 'available' if dr['available'] else 'unavailable'
                             d.description = None

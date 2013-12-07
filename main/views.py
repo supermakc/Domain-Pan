@@ -83,7 +83,7 @@ def remove_subdomains(url, tlds):
     logger.debug(url_elements)
     raise ValueError("Domain not in global list of TLDs")
 
-def extract_domains(file_contents, fail_email, filename):
+def extract_domains(file_content, fail_email, filename):
     tlds = load_tlds()
     exclusions = load_exclusions()
     preservations = load_preservations()
@@ -91,9 +91,8 @@ def extract_domains(file_contents, fail_email, filename):
     ln = 0
     failed_lines = []
     failed_domains = []
-    filedata = file_contents.read()
     failed_set = set()
-    for url in filedata.split('\n'):
+    for url in file_content.split('\n'):
         ln += 1
         if len(url) == 0 or url[0] in '/\n':
             continue
@@ -119,7 +118,7 @@ def extract_domains(file_contents, fail_email, filename):
                 failed_set.add(domain)
             elif domain in preservations:
                 failed_domains.append((full_domain, 'special', 'Domain is reserved for special processing (%s)' % domain))
-                failed_set.add(domain)
+                failed_set.add(full_domain)
             else:
                 domain_list.add(domain)
         except ValueError as e:
@@ -131,7 +130,7 @@ def extract_domains(file_contents, fail_email, filename):
             error_email += 'Line %d: %s (%s)\n' % (fd[0], fd[1], fd[2])
         logger.debug(error_email)
         send_mail('Domain Checker: Failed Domains', error_email, 'noreply@domain.com', [fail_email])
-    return (domain_list, failed_domains, failed_lines, filedata)
+    return (domain_list, failed_domains, failed_lines)
 
 def index(request):
     fdir = os.path.dirname(__file__)
@@ -227,7 +226,8 @@ def upload_project(request):
         logger.debug('Attempting to upload project...')
         if uploadform.is_valid():
             logger.debug('Form is valid.')
-            (domain_list, failed_domains, failed_lines, filedata) = extract_domains(request.FILES['file'], request.user.email, request.FILES['file'].name)
+            file_contents = request.FILES['file'].read()
+            (domain_list, failed_domains, failed_lines) = extract_domains(file_contents, request.user.email, request.FILES['file'].name)
             projectdomains = []
             with transaction.atomic():
                 project = UserProject(state='checking', updated=timezone.now(), user_id=request.user.id)
@@ -238,7 +238,7 @@ def upload_project(request):
                     project.parse_errors = parse_error_str
                 project.save()
 
-                projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=filedata, project_id=project.id)
+                projectfile = UploadedFile(filename=request.FILES['file'].name, filedata=file_contents, project_id=project.id)
                 for domain in domain_list:
                     projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=False, state='unchecked', last_checked=timezone.now(), project_id=project.id))
                 for (domain, state, error) in failed_domains:
