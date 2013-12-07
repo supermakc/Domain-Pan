@@ -81,7 +81,7 @@ def remove_subdomains(url, tlds):
         """
 
     logger.debug(url_elements)
-    raise ValueError("Domain not in global list of TLDs")
+    raise ValueError("Invalid address or domain not in recognized list of TLDs")
 
 def extract_domains(file_content, fail_email, filename):
     tlds = load_tlds()
