@@ -311,7 +311,8 @@ def delete_project(request):
     if project.user_id != request.user.id:
         return redirect('/')
     pname = UploadedFile.objects.get(project_id=project.id).filename
-    deep_delete_project(project)
+    with transaction.atomic():
+        deep_delete_project(project)
     request.session['profile_message'] = 'Project "%s" has been deleted.' % pname
     request.session['profile_messagetype'] = 'success'
     return redirect('/profile')
