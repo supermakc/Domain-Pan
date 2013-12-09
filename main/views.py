@@ -230,7 +230,7 @@ def profile(request):
         del request.session['profile_messagetype']
     uploadform = URLFileForm(request.POST, request.FILES)
     projects = UserProject.objects.filter(user_id=request.user.id)
-    tl = get_task_list()
+    # tl = get_task_list()
     for project in projects:
         try:
             project.file = UploadedFile.objects.get(project_id=project.id)
@@ -239,6 +239,7 @@ def profile(request):
             pass
         project.domains = ProjectDomain.objects.filter(project_id=project.id)
 
+        """
         # Automatic restart of projects
         if not project.state in ['completed', 'error', 'paused'] and not is_project_task_active(project, tl):
             task_id = check_project_domains.delay(project.id)
@@ -250,6 +251,7 @@ def profile(request):
             project_task.save()
 
             logger.debug('Restarted task for project %d (task id: %s)' % (project.id, task_id))
+        """
 
     exclusions = None
     preserved = None

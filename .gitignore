@@ -7,3 +7,4 @@ domain_checker/settings/*
 !domain_checker/settings/__init__.py
 !domain_checker/settings/defaults.py
 !domain_checker/settings/template.py
+celerybeat-schedule

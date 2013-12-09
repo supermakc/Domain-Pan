@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
-from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask
 
 import requests, lockfile
 
@@ -20,13 +20,64 @@ NAMECHEAP_LOCK_ID = 'namecheap-lock'
 # TODO: Deal with stale locks
 class NamecheapLock():
     def __init__(self):
-        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), 'namecheap'))
+        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), u'namecheap'))
 
     def acquire(self):
         self.lockfile.acquire()
 
     def release(self):
         self.lockfile.release()
+
+def get_task_list():
+    i = app.control.inspect()
+    actives = i.active()
+    al = []
+    if actives is not None:
+        for tasks in actives.values():
+            al += tasks
+    print u'Active (%d) %s: ' % (len(al), str(al))
+    scheduled = i.scheduled()
+    sl = []
+    if scheduled is not None:
+        for tasks in scheduled.values():
+            sl += tasks
+    print u'Scheduled (%d) %s' % (len(sl), str(sl))
+    reserved = i.reserved()
+    rl = []
+    if reserved is not None:
+        for tasks in reserved.values():
+            rl += tasks
+    print u'Reserved (%s) %s: ' % (len(rl), str(rl))
+    at = al + sl + rl
+    print u'Full list (%d): %s' % (len(at), str(at))
+    return at
+
+def is_project_task_active(project, task_list):
+    pts = ProjectTask.objects.filter(project_id=project.id)
+    task_list_ids = [t['id'] for t in task_list]
+    for pt in pts:
+        if pt.celery_id in task_list_ids:
+            print u'Task found for project %d' % project.id
+            return True
+    print u'Unable to find tasks for project %d.' % project.id
+    return False
+
+@app.task(ignore_result=True)
+def check_project_tasks():
+    projects = UserProject.objects.all()
+    tl = get_task_list()
+    for project in projects:
+        if not project.state in [u'completed', u'error', u'paused'] and not is_project_task_active(project, tl):
+            async_result = check_project_domains.delay(project.id)
+            task_id = async_result.id
+            print task_id
+            project_task = ProjectTask()
+            project_task.project_id = project.id
+            project_task.celery_id = task_id
+            project_task.type = u'checker'
+            project_task.save()
+
+            print u'Restarted task for project %d (task id: %s)' % (project.id, task_id)
 
 @app.task(ignore_result=True)
 def update_tlds():

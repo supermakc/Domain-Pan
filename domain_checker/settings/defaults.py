@@ -198,3 +198,4 @@ celery.conf.update(
 )
 """
 
+DEFAULT_CHARSET='utf-8'
