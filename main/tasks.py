@@ -163,6 +163,7 @@ def check_project_domains(project_id):
             if len(domain_list) == 0:
                 project.state = u'completed'
                 project.updated = timezone.now()
+                project.completed_datetime = timezone.now()
                 project.save()
 
                 pfile = UploadedFile.objects.get(project_id=project.id)
@@ -241,6 +242,8 @@ def check_project_domains(project_id):
             lock.release()
             project.state = u'error'
             project.error = u'Error occurred while checking domains - %s' % str(e).encode('utf-8')
+            project.updated = timezone.now()
+            project.completed_datetime = timezone.now()
             project.save()
             reply_address = AdminSetting.get_value(u'noreply_address')
             server_address = AdminSetting.get_value(u'server_address')

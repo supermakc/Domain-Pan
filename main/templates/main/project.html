@@ -23,6 +23,11 @@
 
 <p>Status: {{ project.get_state_display }}
 <p>Progress: <b>{{ progress }}%</b></p>
+{% if project.is_running %}
+<p>Run time to date: {{ project.run_time }}</p>
+{% else %}
+<p>Completion time: {{ project.run_time }}</p>
+{% endif %}
 <p>Domains to check: {{ domains|length }}</p>
 <p>Last updated: {{ project.updated }}</p>
 

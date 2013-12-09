@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.models import User
 
 MAX_DOMAIN_LENGTH = 255
@@ -32,6 +33,8 @@ class UserProject(models.Model):
     state = models.CharField(max_length=20, choices=PROJECT_STATES)
     error = models.TextField(blank=True, null=True, default=None)
     parse_errors = models.TextField(blank=True, null=True, default=None)
+    creation_datetime = models.DateTimeField(blank=True, auto_now_add=True)
+    completed_datetime = models.DateTimeField(blank=True, null=True)
     updated = models.DateTimeField()
 
     def name(self):
@@ -44,6 +47,17 @@ class UserProject(models.Model):
 
     def percent_complete_str(self):
         return '%.2f' % self.percent_complete()
+
+    def is_running(self):
+        return self.state not in ['completed', 'paused', 'error']
+
+    def run_time(self):
+        if not self.is_running():
+            if self.completed_datetime is None:
+                return 'error'
+            return str(self.completed_datetime - self.creation_datetime)
+        else:
+            return str(timezone.now() - self.creation_datetime)
 
 # Uploaded project files
 class UploadedFile(models.Model):
