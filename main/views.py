@@ -91,7 +91,7 @@ def deep_delete_project(project):
 def remove_subdomains(url, tlds):
     # Checks for presence of // before domain (required by urlparse)
     if schemecheck_re.match(url) == None:
-        url = '//'+url
+        url = u'//'+url
 
     full_domain = urlparse(url, scheme='http')[1]
     url_elements = full_domain.split('.')
@@ -108,15 +108,15 @@ def remove_subdomains(url, tlds):
         #    i=-2: ["co","uk"]
         #    i=-1: ["uk"] etc
 
-        candidate = ".".join(last_i_elements) # abcde.co.uk, co.uk, uk
-        wildcard_candidate = ".".join(["*"] + last_i_elements[1:]) # *.co.uk, *.uk, *
-        exception_candidate = "!" + candidate
+        candidate = u".".join(last_i_elements) # abcde.co.uk, co.uk, uk
+        wildcard_candidate = u".".join(["*"] + last_i_elements[1:]) # *.co.uk, *.uk, *
+        exception_candidate = u"!" + candidate
 
         # match tlds: 
         if (exception_candidate in tlds):
-            return (exception_candidate, ".".join(url_elements[i:]), full_domain) 
+            return (exception_candidate, u".".join(url_elements[i:]), full_domain) 
         elif (candidate in tlds):
-            return (candidate, ".".join(url_elements[i-1:]), full_domain)
+            return (candidate, u".".join(url_elements[i-1:]), full_domain)
         """
         # The wildcard format plays havoc with the way NameCheap TLDs are processed
         elif (wildcard_candidate in tlds):
@@ -124,7 +124,7 @@ def remove_subdomains(url, tlds):
         """
 
     logger.debug(url_elements)
-    raise ValueError("Invalid address or domain not in recognized list of TLDs")
+    raise ValueError(u"Invalid address or domain not in recognized list of TLDs")
 
 def extract_domains(file_content, fail_email, filename):
     tlds = load_tlds()
@@ -137,6 +137,8 @@ def extract_domains(file_content, fail_email, filename):
     failed_set = set()
     for url in file_content.split('\n'):
         ln += 1
+        logger.debug(type(url))
+        url = url.decode('utf-8')
         if len(url) == 0 or url[0] in '/\n':
             continue
         # logger.debug(url.strip())
@@ -151,16 +153,16 @@ def extract_domains(file_content, fail_email, filename):
             if domain in failed_set:
                 continue
             if not tld.is_recognized:
-                failed_domains.append((domain, 'unregisterable', 'Unregisterable TLD (%s)' % tld_match))
+                failed_domains.append((domain, u'unregisterable', u'Unregisterable TLD (%s)' % tld_match))
                 failed_set.add(domain)
             elif not tld.is_api_registerable:
-                failed_domains.append((domain, 'unregisterable', 'TLD recognized but cannot be registered through the API (%s)'% tld_match))
+                failed_domains.append((domain, u'unregisterable', u'TLD recognized but cannot be registered through the API (%s)'% tld_match))
                 failed_set.add(domain)
             elif domain in exclusions:
-                failed_domains.append((domain, 'unregisterable', 'Domain explicitly excluded (%s)' % domain))
+                failed_domains.append((domain, u'unregisterable', u'Domain explicitly excluded (%s)' % domain))
                 failed_set.add(domain)
             elif domain in preservations:
-                failed_domains.append((full_domain, 'special', 'Domain is reserved for special processing (%s)' % domain))
+                failed_domains.append((full_domain, u'special', u'Domain is reserved for special processing (%s)' % domain))
                 failed_set.add(full_domain)
             else:
                 domain_list.add(domain)
@@ -168,11 +170,13 @@ def extract_domains(file_content, fail_email, filename):
             failed_lines.append((ln, url.strip(), str(e)))
 
     if len(failed_lines) > 0:
-        error_email = 'The following domains failed while reading the file "%s":\n\n' % filename
+        error_email = u'The following domains failed while reading the file "%s":\n\n' % filename.encode('utf-8')
         for fd in failed_lines:
-            error_email += 'Line %d: %s (%s)\n' % (fd[0], fd[1], fd[2])
+            error_email += u'Line %d: %s (%s)\n' % (fd[0], 
+                fd[1],
+                fd[2])
         logger.debug(error_email)
-        send_mail('Domain Checker: Failed Domains', error_email, AdminSetting.get_value('noreply_address'), [fail_email])
+        send_mail(u'Domain Checker: Failed Domains', error_email, AdminSetting.get_value('noreply_address'), [fail_email])
     return (domain_list, failed_domains, failed_lines)
 
 def index(request):
