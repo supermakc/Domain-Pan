@@ -12,11 +12,12 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from main.forms import URLFileForm
-from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain, AdminSetting
+from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain, ProjectTask, AdminSetting
 from main.tasks import check_project_domains, update_tlds
 
 import os, logging, re, json, string, random
 from urlparse import urlparse
+from domain_checker.celery import app
 
 TLDS_CACHE_KEY = 'TDLS_CACHE_KEY'
 EXCLUSION_CACHE_KEY = 'EXCLUSION_CACHE_KEY'
@@ -26,18 +27,60 @@ schemecheck_re = re.compile(r'[^\.]*?//')
 iponly_re = re.compile(r'[^\.]*?//([0-9]{1,3}\.){3}[0-9]{1,3}[/$]')
 portend_re = re.compile(r'(.*?):[0-9]+$')
 
+def get_task_list():
+    i = app.control.inspect()
+    actives = i.active()
+    al = []
+    if actives is not None:
+        for tasks in actives.values():
+            al += tasks
+    logger.debug('Active (%d) %s: ' % (len(al), str(al)))
+    scheduled = i.scheduled()
+    sl = []
+    if scheduled is not None:
+        for tasks in scheduled.values():
+            sl += tasks
+    logger.debug('Scheduled (%d) %s' % (len(sl), str(sl)))
+    reserved = i.reserved()
+    rl = []
+    if reserved is not None:
+        for tasks in reserved.values():
+            rl += tasks
+    logger.debug('Reserved (%s) %s: ' % (len(rl), str(rl)))
+    at = al + sl + rl
+    logger.debug('Full list (%d): %s' % (len(at), str(at)))
+    return at
+
+def is_project_task_active(project, task_list):
+    try:
+        pt = ProjectTask.objects.filter(project_id=project.id)
+        task_list_ids = [t['id'] for t in task_list]
+        for t in task_list:
+            if t['id'] in task_list_ids:
+                logger.debug('Task found for project %d' % project.id)
+                return True
+        logger.debug('Unable to find tasks for project %d.' % project.id)
+        return False
+
+    except ProjectTask.DoesNotExist:
+        logger.debug('Unable to find tasks for project %d.' % project.id)
+        return False
+        
 def load_tlds():
-    return [tld.domain for tld in TLD.objects.all().order_by('-is_recognized','-is_api_registerable')]
+    return [unicode(tld.domain) for tld in TLD.objects.all().order_by('-is_recognized','-is_api_registerable')]
 
 def load_exclusions():
-    return [exclusion.domain for exclusion in ExcludedDomain.objects.all()]
+    return [unicode(exclusion.domain) for exclusion in ExcludedDomain.objects.all()]
 
 def load_preservations():
-    return [preservation.domain for preservation in PreservedDomain.objects.all()]
+    return [unicode(preservation.domain) for preservation in PreservedDomain.objects.all()]
 
 def deep_delete_project(project):
-    uploaded_file = UploadedFile.objects.get(project_id=project.id)
-    uploaded_file.delete()
+    try:
+        uploaded_file = UploadedFile.objects.get(project_id=project.id)
+        uploaded_file.delete()
+    except UploadedFile.DoesNotExist:
+        pass
     
     project_domains = ProjectDomain.objects.filter(project_id=project.id)
     for pd in project_domains:
@@ -188,10 +231,27 @@ def profile(request):
         del request.session['profile_messagetype']
     uploadform = URLFileForm(request.POST, request.FILES)
     projects = UserProject.objects.filter(user_id=request.user.id)
+    tl = get_task_list()
     for project in projects:
-        project.file = UploadedFile.objects.get(project_id=project.id)
-        logger.debug('Filename: %s' % project.file.filename)
+        try:
+            project.file = UploadedFile.objects.get(project_id=project.id)
+            logger.debug('Filename: %s' % project.file.filename)
+        except UploadedFile.DoesNotExist:
+            pass
         project.domains = ProjectDomain.objects.filter(project_id=project.id)
+
+        # Automatic restart of projects
+        if not project.state in ['completed', 'error', 'paused'] and not is_project_task_active(project, tl):
+            task_id = check_project_domains.delay(project.id)
+            logger.debug(task_id)
+            project_task = ProjectTask()
+            project_task.project_id = project.id
+            project_task.celery_id = task_id
+            project_task.type = 'checker'
+            project_task.save()
+
+            logger.debug('Restarted task for project %d (task id: %s)' % (project.id, task_id))
+
     exclusions = None
     preserved = None
     staff = None
@@ -251,7 +311,14 @@ def upload_project(request):
                     request.session['profile_message'] = 'Project "%s" successfully uploaded but no valid domains were found for checking.' % request.FILES['file'].name
                     request.session['profile_messagetype'] = 'warning'
                 else:
-                    check_project_domains.delay(project.id)
+                    task_id = check_project_domains.delay(project.id)
+
+                    project_task = ProjectTask()
+                    project_task.project_id = project.id
+                    project_task.task_id = task_id
+                    project_task.type = 'checker'
+                    project_task.save()
+
                     request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
                     request.session['profile_messagetype'] = 'success'
 
@@ -310,7 +377,10 @@ def delete_project(request):
     project = UserProject.objects.get(id=pid)
     if project.user_id != request.user.id:
         return redirect('/')
-    pname = UploadedFile.objects.get(project_id=project.id).filename
+    try:
+        pname = UploadedFile.objects.get(project_id=project.id).filename
+    except UploadedFile.DoesNotExist:
+        pname = str(project.id)
     with transaction.atomic():
         deep_delete_project(project)
     request.session['profile_message'] = 'Project "%s" has been deleted.' % pname

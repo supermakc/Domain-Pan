@@ -24,7 +24,6 @@ class NamecheapLock():
 
     def acquire(self):
         self.lockfile.acquire()
-                
 
     def release(self):
         self.lockfile.release()
