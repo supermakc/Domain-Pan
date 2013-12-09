@@ -52,19 +52,14 @@ def get_task_list():
     return at
 
 def is_project_task_active(project, task_list):
-    try:
-        pt = ProjectTask.objects.filter(project_id=project.id)
-        task_list_ids = [t['id'] for t in task_list]
-        for t in task_list:
-            if t['id'] in task_list_ids:
-                logger.debug('Task found for project %d' % project.id)
-                return True
-        logger.debug('Unable to find tasks for project %d.' % project.id)
-        return False
-
-    except ProjectTask.DoesNotExist:
-        logger.debug('Unable to find tasks for project %d.' % project.id)
-        return False
+    pts = ProjectTask.objects.filter(project_id=project.id)
+    task_list_ids = [t['id'] for t in task_list]
+    for pt in pts:
+        if pt.celery_id in task_list_ids:
+            logger.debug('Task found for project %d' % project.id)
+            return True
+    logger.debug('Unable to find tasks for project %d.' % project.id)
+    return False
         
 def load_tlds():
     return [unicode(tld.domain) for tld in TLD.objects.all().order_by('-is_recognized','-is_api_registerable')]
@@ -319,7 +314,7 @@ def upload_project(request):
 
                     project_task = ProjectTask()
                     project_task.project_id = project.id
-                    project_task.task_id = task_id
+                    project_task.celery_id = task_id
                     project_task.type = 'checker'
                     project_task.save()
 
