@@ -59,7 +59,7 @@ STATIC_ROOT = ''
 
 # URL prefix for static files.
 # Example: "http://example.com/static/", "http://static.example.com/"
-STATIC_URL = '/static/'
+STATIC_URL = '/'
 
 # Additional locations of static files
 STATICFILES_DIRS = (
@@ -199,3 +199,4 @@ celery.conf.update(
 """
 
 DEFAULT_CHARSET='utf-8'
+ADMIN_MEDIA_PREFIX='/admin/'
