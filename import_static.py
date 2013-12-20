@@ -57,16 +57,20 @@ def main():
         if len(s) == 0:
             continue
         vals = s.split('\t')
-        key = vals[0]
-        value = vals[1]
-        valtype = vals[2]
-        choices = None
-        if len(vals) > 3:
-            choices = vals[4]
-        c.execute("""SELECT COUNT(*) FROM """+settings_table+""" WHERE `key` = %s""", (key,))
-        if c.fetchone()[0] == 0:
-            s_insertion_count += 1
-            c.execute('''INSERT INTO '''+settings_table+''' (`key`, `value`, `type`, `choices`) VALUES(%s, %s, %s, %s)''', (key, value, valtype, choices))
+        try:
+            key = vals[0]
+            value = vals[1]
+            valtype = vals[2]
+            choices = None
+            if len(vals) > 3:
+                choices = vals[4]
+            c.execute("""SELECT COUNT(*) FROM """+settings_table+""" WHERE `key` = %s""", (key,))
+            if c.fetchone()[0] == 0:
+                s_insertion_count += 1
+                c.execute('''INSERT INTO '''+settings_table+''' (`key`, `value`, `type`, `choices`) VALUES(%s, %s, %s, %s)''', (key, value, valtype, choices))
+        except IndexError as e:
+            print 'Index error on line containing: %s' % s
+            raise
 
     print 'Admin settings: Inserted %d row(s) (out of %d listed settings)' % (s_insertion_count, len(ss))
 

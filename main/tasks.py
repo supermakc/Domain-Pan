@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
-from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics
 
 import requests, lockfile
 
@@ -22,11 +22,15 @@ class NamecheapLock():
     def __init__(self):
         self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), u'namecheap'))
 
-    def acquire(self):
-        self.lockfile.acquire()
+    def acquire(self, timeout=None):
+        self.lockfile.acquire(timeout)
 
     def release(self):
         self.lockfile.release()
+
+class MozAPILock(NamecheapLock):
+    def __init__(self):
+        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), u'mozapi'))
 
 def get_task_list():
     i = app.control.inspect()
@@ -61,6 +65,52 @@ def is_project_task_active(project, task_list):
             return True
     print u'Unable to find tasks for project %d.' % project.id
     return False
+
+@app.task(ignore_result=True)
+def update_domain_metrics():
+    lock = MozAPILock()
+    try:
+        lock.acquire(0)
+    except lockfile.AlreadyLocked:
+        # update already in progress, ignore
+        return
+
+    try:
+        # find all domains in need of updating        
+        checkables = set()
+        for pd in ProjectDomain.objects.filter(state__in=['available']):
+            try:
+                m = URLMetrics.objects.get(canonical_url=pd.domain)
+            except URLMetrics.DoesNotExist:
+                checkables.add(pd.domain)
+        print 'Total number of domains to check: %d' % len(checkables)
+        # Gather login details
+        params = AdminSetting.get_moz_params()
+        # Set columns to gather (currently all 'free' columns)
+        params.append(('Cols', 1+4+34359738368+68719476736+2048+32+16384+32768+536870912))
+        # use MozAPI to update them
+        for i, c in enumerate(checkables):
+            r = requests.get(AdminSetting.get_moz_api_url()+'url-metrics/'+c, params=params)
+            print r.status_code
+            rtext = r.text
+            print rtext
+            if r.status_code == 200:
+                rd = json.loads(rtext)
+                mm = URLMetrics()
+                mm.query_url = c
+                mm.store_result(rd)
+                mm.last_updated = timezone.now()
+                mm.save()
+            
+            # time.sleep(AdminSetting.get_moz_api_wait_time())
+            time.sleep(1)
+            if i >= 0:
+                break
+    except Exception as e:
+        lock.release()
+        raise
+
+    lock.release()
 
 @app.task(ignore_result=True)
 def check_project_tasks():

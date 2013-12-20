@@ -23,9 +23,13 @@ app.conf.update(
     CELERY_IMPORTS=('main.tasks', 'domain_checker'),
 
     CELERYBEAT_SCHEDULE = {
-        'test': {
+        'check_tasks': {
             'task': 'main.tasks.check_project_tasks',
             'schedule': crontab(minute='*/5'),
+        },
+        'moz_update': {
+            'task' : 'main.tasks.update_domain_metrics',
+            'schedule' : crontab(minute='*'),
         },
     }
 )

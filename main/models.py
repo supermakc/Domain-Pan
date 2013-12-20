@@ -2,7 +2,82 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 
+import hmac, hashlib, base64, time
+
 MAX_DOMAIN_LENGTH = 255
+
+# MozAPI url-metric result for a single URL
+class URLMetrics(models.Model):
+    query_url = models.CharField(max_length=MAX_DOMAIN_LENGTH)
+    title = models.TextField(null=True, blank=True)
+    canonical_url = models.TextField(null=True, blank=True)
+    last_updated = models.DateTimeField(null=True, blank=True)
+
+    subdomain = models.CharField(max_length=MAX_DOMAIN_LENGTH, null=True, blank=True)
+    root_domain = models.CharField(max_length=MAX_DOMAIN_LENGTH, null=True, blank=True)
+    external_links = models.IntegerField(null=True, blank=True)
+
+    subdomain_external_links = models.IntegerField(null=True, blank=True)
+    root_domain_external_links = models.IntegerField(null=True, blank=True)
+    equity_links = models.IntegerField(null=True, blank=True)
+
+    subdomains_linking = models.IntegerField(null=True, blank=True)
+    root_domains_linking = models.IntegerField(null=True, blank=True)
+    links = models.IntegerField(null=True, blank=True)
+    subdomain_subdomains_linking = models.IntegerField(null=True, blank=True)
+    root_domain_root_domains_linking = models.IntegerField(null=True, blank=True)
+    mozrank_10 = models.FloatField(null=True, blank=True)
+    mozrank_raw = models.FloatField(null=True, blank=True)
+    subdomain_mozrank_10 = models.FloatField(null=True, blank=True)
+    subdomain_mozrank_raw = models.FloatField(null=True, blank=True)
+    root_domain_mozrank_10 = models.FloatField(null=True, blank=True)
+    root_domain_mozrank_raw = models.FloatField(null=True, blank=True)
+    http_status_code = models.IntegerField(null=True, blank=True)
+    page_authority = models.FloatField(null=True, blank=True)
+    domain_authority = models.FloatField(null=True, blank=True)
+
+    flag_map = {
+        'Title' : ['ut', 1],
+        'Canonical URL' : ['uu', 4],
+        'Subdomain' : ['ufq', 8],
+        'Root Domain' : ['upl', 16],
+        'External Links' : ['ueid', 32],
+        'Subdomain External Links' : ['feid', 64],
+        'Root Domain External Links' : ['peid', 128],
+        'Equity Links' : ['ujid', 256],
+        'Subdomain Linking' : ['uifq', 512],
+        'Root Domains Linking' : ['uipl', 1024],
+        'Links' : ['uid', 2048],
+        'Subdomain Subdomains Linking' : ['uid', 4096],
+        'Root Domain Root Domains Linking' : ['pid', 8192],
+        'MozRank 10' : ['umrp', 16384],
+        'MozRank Raw' : ['umrr', 16384],
+        'Subdomain MozRank 10' : ['fmrp', 32768],
+        'Subdomain MozRank Raw' : ['fmrr', 32768],
+        'Root Domain MozRank 10' : ['pmrp', 65536],
+        'Root Domain MozRank Raw' : ['pmrr', 65536],
+        'HTTP Status Code' : ['us', 536870912],
+        'Page Authority' : ['upa', 34359738368],
+        'Domain Authority' : ['pda', 68719476736],
+    }
+
+    def store_result(self, rd):
+        for k,v in rd.items():
+            for fk, fv in URLMetrics.flag_map.items():
+                if fv[0] == k:
+                    print k, v, fk, fv
+                    attr = fk.lower().replace(' ', '_')
+                    print attr
+                    setattr(self, attr, v)
+                    break
+
+    @classmethod
+    def create_cols_bitflag(cls, cols):
+        bf = 0
+        for col in cols:
+            bf |= flag_map.get(col, ['', 0])[1]
+        return bf
+
 
 # Top-level domains
 class TLD(models.Model):
@@ -83,6 +158,8 @@ class ProjectDomain(models.Model):
     error = models.TextField(blank=True, null=True, default=None)
     last_checked = models.DateTimeField()
 
+    # url_metrics = models.ForeignKey(URLMetrics, null=True, blank=True)
+
 # Association between projects and background(Celery) tasks
 class ProjectTask(models.Model):
     PROJ_TASK_TYPES = (
@@ -117,6 +194,43 @@ class AdminSetting(models.Model):
         else:
             return ads.value
 
+    # Test AccessID: moz-username
+    # Test secret key: MOZ_API_KEY
+
+    @classmethod
+    def generate_moz_signature(cls, access_id, expires, key):
+        # print access_id
+        # print expires
+        # print key
+        return base64.b64encode(hmac.new(str(key), str('%s\n%s' % (access_id, expires)), hashlib.sha1).digest())
+        
+    @classmethod
+    def get_moz_api_url(cls):
+        if cls.get_value('use_live_moz_api'):
+            return cls.get_value('live_moz_api_url')
+        else:
+            return cls.get_value('test_moz_api_url')
+
+    @classmethod
+    def get_moz_api_wait_time(cls):
+        prefix = 'live_' if cls.get_value('use_live_moz_api') else 'test_'
+        return cls.get_value(prefix+'moz_api_wait_time')
+
+    @classmethod
+    def get_moz_params(cls):
+        prefix = 'test_'
+        if AdminSetting.get_value('use_live_moz_api'):
+            prefix = 'live_'
+        access_id = cls.get_value(prefix+'moz_api_access_id')
+        expires_str = str(time.time()+(60*10))
+        secret_key = cls.get_value(prefix+'moz_api_secret_key')
+        params=[
+            ('AccessID', access_id),
+            ('Expires', expires_str),
+            ('Signature', cls.generate_moz_signature(access_id, expires_str, secret_key)),]
+        print params
+        return params
+
     @classmethod
     def get_api_params(cls):
         prefix = 'sandbox_'
@@ -149,3 +263,4 @@ class AdminSetting(models.Model):
             return AdminSetting.get_value('live_api_urls_per_request')
         else:
             return AdminSetting.get_value('sandbox_api_urls_per_request')
+
