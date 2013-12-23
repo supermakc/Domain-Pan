@@ -41,8 +41,22 @@
         <div class="navbar-collapse collapse">
           {% if user.is_authenticated %}
           <!-- <button type="button" class="btn btn-primary navbar-btn navbar-right">Sign out</button> -->
+          <!--
           <a class="btn btn-primary navbar-btn navbar-right" role="button" href="/logout_user">Sign out</a>
           <p class="navbar-text navbar-right" style="padding-right: 20px;">Signed in as <a href="/profile" class="navbar-link">{{ user.first_name}} {{ user.last_name }}</a></p>
+          -->
+          <ul class="nav navbar-nav navbar-right">
+            <li>
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown"><em>{{ user.username }}</em> <b class="caret"></b></a>
+              <ul class="dropdown-menu">
+                <li><a href="/profile">Profile</a></li>
+                {% if user.is_staff %}
+                  <li><a href="/admin_settings">Admin</a></li>
+                {% endif %}
+                <li class="divider"></li>
+                <li><a href="/logout_user">Logout</a></li>
+              </ul>
+          </ul>
           {% else %}
             <form class="navbar-form navbar-right">
               <div class="form-group">
