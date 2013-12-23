@@ -117,6 +117,8 @@ def update_domain_metrics():
                 mm.store_result(rd)
                 mm.last_updated = timezone.now()
                 mm.save()
+                for mp in UserProject.objects.filter(state='measuring'):
+                    mp.update_state()
             r.close()
             print 'Done with %s, waiting...' % c
             time.sleep(wait_time)
@@ -227,19 +229,21 @@ def check_project_domains(project_id):
         try:
             domain_list = project.projectdomain_set.filter(is_checked=False)[:AdminSetting.get_api_urls_per_request()]
             if len(domain_list) == 0:
-                project.state = u'completed'
+                # project.state = u'completed'
+                project.update_state(save=False)
                 project.updated = timezone.now()
                 project.completed_datetime = timezone.now()
                 project.save()
 
-                pfile = UploadedFile.objects.get(project_id=project.id)
-                reply_address = AdminSetting.get_value(u'noreply_address')
-                server_address = AdminSetting.get_value(u'server_address')
-                messagebody = (u'The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
-                              u'%s/project?id=%d\n\n' + \
-                              u'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
-                user = User.objects.get(id=project.user_id)
-                send_mail(u'Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
+                if project.state == 'completed':
+                    pfile = UploadedFile.objects.get(project_id=project.id)
+                    reply_address = AdminSetting.get_value(u'noreply_address')
+                    server_address = AdminSetting.get_value(u'server_address')
+                    messagebody = (u'The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
+                                  u'%s/project?id=%d\n\n' + \
+                                  u'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
+                    user = User.objects.get(id=project.user_id)
+                    send_mail(u'Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
                 lock.release()
                 break
 

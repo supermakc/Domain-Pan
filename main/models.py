@@ -71,6 +71,10 @@ class URLMetrics(models.Model):
                     setattr(self, attr, v)
                     break
 
+    def is_uptodate(self):
+        # TODO: Do correct check here based on a sensible expiry period
+        return True
+
     @classmethod
     def create_cols_bitflag(cls, cols):
         bf = 0
@@ -100,6 +104,7 @@ class UserProject(models.Model):
     PROJECT_STATES = (
         ('parsing', 'Parsing domains'),
         ('checking', 'Checking domains'),
+        ('measuring', 'Checking URL metrics'),
         ('paused', 'Paused'),
         ('completed', 'Completed'),
         ('error', 'Error'))
@@ -115,16 +120,58 @@ class UserProject(models.Model):
     def name(self):
         return self.uploadedfile_set.all()[0].filename
 
+    def measurable_domains(self):
+        return self.projectdomain_set.filter(state__in=['available'])
+        # return self.projectdomain_set.all()
+
+    # Returns the number of domains that have been measured
+    def num_measured_domains(self):
+        m = 0
+        for pd in self.measurable_domains():
+            try:
+                um = URLMetrics.objects.get(query_url=pd.domain)
+                if um.is_uptodate():
+                    m += 1
+            except URLMetrics.DoesNotExist:
+                pass
+        return m
+
     def percent_complete(self):
-        total_domains = len(self.projectdomain_set.all())*0.01
+        checkable_domains = len(self.projectdomain_set.all())
         checked_domains = len(self.projectdomain_set.filter(is_checked=True))
-        return 100.0 if total_domains == 0 else checked_domains / total_domains
+
+        measurable_domains = len(self.measurable_domains())
+        measured_domains = self.num_measured_domains()
+
+        total_domains = checkable_domains + measurable_domains
+        completed_domains = checked_domains + measured_domains
+
+        return 100.0 if total_domains == 0 else (completed_domains*100.0) / total_domains
 
     def percent_complete_str(self):
         return '%.2f' % self.percent_complete()
 
     def is_running(self):
         return self.state not in ['completed', 'paused', 'error']
+
+    def all_checked(self):
+        total_domains = len(self.projectdomain_set.all())
+        checked_domains = len(self.projectdomain_set.filter(is_checked=True))
+        return checked_domains == total_domains
+
+    def all_measured(self):
+        return self.num_measured_domains() == len(self.measurable_domains())
+
+    def update_state(self, save=True):
+        if self.state not in ['paused', 'error', 'parsing']:
+            if not self.all_checked():
+                self.state = 'checking'
+            elif not self.all_measured():
+                self.state = 'measuring'
+            else:
+                self.state = 'completed'
+            if save:
+                self.save()
 
     def run_time(self):
         if not self.is_running():

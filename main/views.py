@@ -306,22 +306,23 @@ def upload_project(request):
                     projectdomains.append(ProjectDomain(domain=domain, subdomains_preserved=False, is_checked=True, state=state, last_checked=timezone.now(), project_id=project.id, error=error))
                 projectfile.save()
                 [pd.save() for pd in projectdomains]
-                if len(project.projectdomain_set.exclude(state='error')) == 0:
-                    project.state = 'completed'
-                    project.save()
-                    request.session['profile_message'] = 'Project "%s" successfully uploaded but no valid domains were found for checking.' % request.FILES['file'].name
-                    request.session['profile_messagetype'] = 'warning'
-                else:
-                    task_id = check_project_domains.delay(project.id)
 
-                    project_task = ProjectTask()
-                    project_task.project_id = project.id
-                    project_task.celery_id = task_id
-                    project_task.type = 'checker'
-                    project_task.save()
+            if len(project.projectdomain_set.exclude(state='error')) == 0:
+                project.state = 'completed'
+                project.save()
+                request.session['profile_message'] = 'Project "%s" successfully uploaded but no valid domains were found for checking.' % request.FILES['file'].name
+                request.session['profile_messagetype'] = 'warning'
+            else:
+                task_id = check_project_domains.delay(project.id)
 
-                    request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
-                    request.session['profile_messagetype'] = 'success'
+                project_task = ProjectTask()
+                project_task.project_id = project.id
+                project_task.celery_id = task_id
+                project_task.type = 'checker'
+                project_task.save()
+
+                request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
+                request.session['profile_messagetype'] = 'success'
 
                 return redirect('/profile')
         else:
@@ -443,7 +444,7 @@ def update_admin(request):
 
     request.session['profile_message'] = 'Administration settings successfully updated'
     request.session['profile_messagetype'] = 'success'
-    return redirect('/profile')
+    return redirect('admin_settings')
 
 def register_user(request):
     if request.method != 'POST':
@@ -551,3 +552,55 @@ def manual_update_metrics(request):
     request.session['profile_messagetype'] = 'success'
 
     return redirect('/profile')
+
+def manual_update_states(request):
+    if not request.user.is_authenticated() or not request.user.is_superuser:
+        return redirect('/')
+
+    for p in UserProject.objects.all():
+        p.update_state()
+        logger.debug(p.uploadedfile_set.all()[0])
+        logger.debug(p.num_measured_domains())
+        logger.debug(len(p.measurable_domains()))
+
+    request.session['profile_message'] = 'Manual project state update complete.'
+    request.session['profile_messagetype'] = 'success'
+
+    return redirect('/profile')
+
+def admin_settings(request):
+    if not request.user.is_authenticated():
+        return redirect('index')
+
+    if not request.user.is_staff:
+        return redirect('profile')
+
+    profile_message = None
+    profile_messagetype = None
+    if request.session.has_key('profile_message'):
+        profile_message = request.session['profile_message']
+        profile_messagetype = request.session['profile_messagetype']
+        del request.session['profile_message']
+        del request.session['profile_messagetype']
+
+    staff = None
+    admin = {}
+    exclusions = '\n'.join([e.domain for e in ExcludedDomain.objects.all()])
+    preserved = '\n'.join([p.domain for p in PreservedDomain.objects.all()])
+    for ads in AdminSetting.objects.all():
+        admin[ads.key] = ads.value
+
+    if request.user.is_superuser:
+        staff = '\n'.join([u.username for u in User.objects.filter(is_staff=True)])
+
+    return render(
+        request, 
+        'main/admin.html', 
+        {
+            'user' : request.user, 
+            'profile_message' : profile_message, 
+            'profile_messagetype' : profile_messagetype, 
+            'exclusions' : exclusions, 
+            'preserved' : preserved,
+            'staff' : staff,
+            'admin' : admin})

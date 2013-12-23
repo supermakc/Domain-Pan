@@ -1,0 +1,221 @@
+{% extends "main/base.html" %}
+
+{% block title %}Domain Checker - Administrator Settings{% endblock %}
+
+{% block content %}
+
+<div class="container">
+  <h1>Administrator Settings</h1>
+
+  {% if profile_message %}
+    <div class="alert alert-dismissable alert-{{ profile_messagetype }}">
+      <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+      {{ profile_message }}
+    </div>
+  {% endif %}
+
+  <form class="form-horizontal" role="form" name="admin_settings" action="/update_admin" method="post">
+    <h3 class="text-muted">Domains</h3>
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="input_exclusions" class="col-sm-2 control-label">Exclusions list</label>
+      <div class="col-sm-10">
+        <textarea class="form-control" id="input_exclusions" name="exclusions" rows="10">{{ exclusions }}</textarea>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="input_preserved" class="col-sm-2 control-label">Preservation list</label>
+      <div class="col-sm-10">
+        <textarea class="form-control" id="input_preserved" name="preserved" rows="10">{{ preserved }}</textarea>
+      </div>
+    </div>
+    {% if user.is_superuser %}
+      <p class="text-muted">Your status as super-user gives you access to the below additional settings.</p>
+      <h3 class="text-muted">Global Settings</h3>
+      <div class="form-group">
+        <label for="input_client_ip" class="col-sm-2 control-label">Client (API) IP</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_client_ip" name="client_ip" value="{{ admin.client_ip }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_use_live_api" class="col-sm-2 control-label">Live Namecheap API?</label>
+        <div class="col-sm-10">
+          <input type="checkbox" id="input_use_live_api" name="use_live_api" value="{{ admin.use_live_api }}" {% if admin.use_live_api == 'true' %}checked="checked"{% endif %}/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_use_live_moz_api" class="col-sm-2 control-label">Live Moz API?</label>
+        <div class="col-sm-10">
+          <input type="checkbox" id="input_use_live_moz_api" name="use_live_moz_api" value="{{ admin.use_live_moz_api }}" {% if admin.use_live_moz_api == 'true' %}checked="checked"{% endif %}/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_noreply_address" class="col-sm-2 control-label">No-reply Email</label>
+        <div class="col-sm-10">
+          <input type="email" class="form-control" id="input_noreply_address" name="noreply_address" value="{{ admin.noreply_address }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_admin_address" class="col-sm-2 control-label">Administrator Email</label>
+        <div class="col-sm-10">
+          <input type="email" class="form-control" id="input_admin_address" name="admin_address" value="{{ admin.admin_address }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_server_address" class="col-sm-2 control-label">Server Address</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_server_address" name="server_address" value="{{ admin.server_address }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_staff" class="col-sm-2 control-label">Staff users</label>
+        <div class="col-sm-10">
+          <textarea class="form-control" id="input_staff" name="staff" rows="5">{{ staff }}</textarea>
+        </div>
+      </div>
+      <h3 class="text-muted">Live Namecheap API Settings</h3>
+      <div class="form-group">
+        <label for="input_live_api_url" class="col-sm-2 control-label">Request URL</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_api_url" name="live_api_url" value="{{ admin.live_api_url }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_api_key" class="col-sm-2 control-label">API Key</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_api_key" name="live_api_key" value="{{ admin.live_api_key }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_api_user" class="col-sm-2 control-label">User</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_api_user" name="live_api_user" value="{{ admin.live_api_user }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_api_username" class="col-sm-2 control-label">Username</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_api_username" name="live_api_username" value="{{ admin.live_api_username }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_api_wait_time" class="col-sm-2 control-label">Wait Time</label>
+        <div class="col-sm-10 input-group">
+          <input type="text" class="form-control" id="input_live_api_wait_time" name="live_api_wait_time" value="{{ admin.live_api_wait_time}}" />
+          <span class="input-group-addon">second(s)</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_api_urls_per_request" class="col-sm-2 control-label">URLs per Request</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_api_urls_per_request" name="live_api_urls_per_request" value="{{ admin.live_api_urls_per_request }}" />
+        </div>
+      </div>
+      <h3 class="text-muted">Testing Namecheap API Settings</h3>
+      <div class="form-group">
+        <label for="input_sandbox_api_url" class="col-sm-2 control-label">Request URL</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_sandbox_api_url" name="sandbox_api_url" value="{{ admin.sandbox_api_url }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_sandbox_api_key" class="col-sm-2 control-label">API Key</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_sandbox_api_key" name="sandbox_api_key" value="{{ admin.sandbox_api_key }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_sandbox_api_user" class="col-sm-2 control-label">User</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_sandbox_api_user" name="sandbox_api_user" value="{{ admin.sandbox_api_user }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_sandbox_api_username" class="col-sm-2 control-label">Username</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_sandbox_api_username" name="sandbox_api_username" value="{{ admin.sandbox_api_username }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_sandbox_api_wait_time" class="col-sm-2 control-label">Wait Time</label>
+        <div class="col-sm-10 input-group">
+          <input type="text" class="form-control" id="input_sandbox_api_wait_time" name="sandbox_api_wait_time" value="{{ admin.sandbox_api_wait_time}}" />
+          <span class="input-group-addon">second(s)</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_sandbox_api_urls_per_request" class="col-sm-2 control-label">URLs per Request</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_sandbox_api_urls_per_request" name="sandbox_api_urls_per_request" value="{{ admin.sandbox_api_urls_per_request }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="col-sm-offset-2 col-sm-10">
+          <button type="submit" class="btn btn-primary">Update settings</button>
+        </div>
+      </div>
+      <h3 class="text-muted">Live Moz API Settings</h3>
+      <div class="form-group">
+        <label for="input_live_moz_api_url" class="col-sm-2 control-label">Request URL</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_moz_api_url" name="live_moz_api_url" value="{{ admin.live_moz_api_url }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_moz_api_access_id" class="col-sm-2 control-label">Access ID</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_moz_api_access_id" name="live_moz_api_access_id" value="{{ admin.live_moz_api_access_id }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_moz_api_secret_key" class="col-sm-2 control-label">Secret Key</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_live_moz_secret_key" name="live_moz_api_secret_key" value="{{ admin.live_moz_api_secret_key }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_live_moz_api_wait_time" class="col-sm-2 control-label">Wait Time</label>
+        <div class="col-sm-10 input-group">
+          <input class="form-control" id="input_live_moz_api_wait_time" name="live_moz_api_wait_time" value="{{ admin.live_moz_api_wait_time }}" />
+          <span class="input-group-addon">second(s)</span>
+        </div>
+      </div>
+      <h3 class="text-muted">Testing Moz API Settings</h3>
+      <div class="form-group">
+        <label for="input_test_moz_api_url" class="col-sm-2 control-label">Request URL</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_test_moz_api_url" name="test_moz_api_url" value="{{ admin.test_moz_api_url }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_test_moz_api_access_id" class="col-sm-2 control-label">Access ID</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_test_moz_api_access_id" name="test_moz_api_access_id" value="{{ admin.test_moz_api_access_id }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_test_moz_api_secret_key" class="col-sm-2 control-label">Secret Key</label>
+        <div class="col-sm-10">
+          <input class="form-control" id="input_test_moz_secret_key" name="test_moz_api_secret_key" value="{{ admin.test_moz_api_secret_key }}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="input_test_moz_api_wait_time" class="col-sm-2 control-label">Wait Time</label>
+        <div class="col-sm-10 input-group">
+          <input class="form-control" id="input_test_moz_api_wait_time" name="test_moz_api_wait_time" value="{{ admin.test_moz_api_wait_time }}" />
+          <span class="input-group-addon">second(s)</span>
+        </div>
+      </div>
+    {% endif %}
+  </form>
+  <h3 class="text-muted">Special Functions<h3>
+  <div class="form-group">
+    <a href="/update_tlds" type="button" class="btn btn-primary">Update NameCheap TLDs</a>
+    <a href="/update_metrics" type="button" class="btn btn-primary">Update URL Metrics</a>
+    <a href="/update_states" type="button" class="btn btn-primary">Update Project States</a>
+  </div>
+
+</div>
+
+{% endblock %}
