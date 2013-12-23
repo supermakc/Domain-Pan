@@ -19,5 +19,6 @@ urlpatterns = patterns('',
     url(r'check_username$', views.check_username, name='check_username'),
     url(r'reset_user$', views.reset_user, name='reset_user'),
     url(r'update_tlds$', views.manual_update_tlds, name='update_tlds'),
+    url(r'^update_metrics$', views.manual_update_metrics, name='update_metrics'),
     url(r'^project$', views.project, name='project'),
     url(r'upload_project$', views.upload_project, name='upload_project'))

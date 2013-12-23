@@ -13,7 +13,7 @@ from django.db.models import Q
 from django.utils import timezone
 from main.forms import URLFileForm
 from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain, ProjectTask, AdminSetting
-from main.tasks import check_project_domains, update_tlds
+from main.tasks import check_project_domains, update_tlds, update_domain_metrics
 
 import os, logging, re, json, string, random
 from urlparse import urlparse
@@ -533,7 +533,7 @@ def project(request):
         return redirect('/profile')
 
 def manual_update_tlds(request):
-    if not request.user.is_authenticated() and request.user.is_superuser:
+    if not request.user.is_authenticated() or not request.user.is_superuser:
         return redirect('/')
 
     update_tlds.delay()
@@ -542,3 +542,12 @@ def manual_update_tlds(request):
 
     return redirect('/profile')
 
+def manual_update_metrics(request):
+    if not request.user.is_authenticated() or not request.user.is_superuser:
+        return redirect('/')
+
+    update_domain_metrics.delay()
+    request.session['profile_message'] = 'Manual URL metrics update initiated.'
+    request.session['profile_messagetype'] = 'success'
+
+    return redirect('/profile')

@@ -15,15 +15,15 @@ class URLMetrics(models.Model):
 
     subdomain = models.CharField(max_length=MAX_DOMAIN_LENGTH, null=True, blank=True)
     root_domain = models.CharField(max_length=MAX_DOMAIN_LENGTH, null=True, blank=True)
-    external_links = models.IntegerField(null=True, blank=True)
+    external_links = models.FloatField(null=True, blank=True)
 
     subdomain_external_links = models.IntegerField(null=True, blank=True)
     root_domain_external_links = models.IntegerField(null=True, blank=True)
-    equity_links = models.IntegerField(null=True, blank=True)
+    equity_links = models.FloatField(null=True, blank=True)
 
     subdomains_linking = models.IntegerField(null=True, blank=True)
     root_domains_linking = models.IntegerField(null=True, blank=True)
-    links = models.IntegerField(null=True, blank=True)
+    links = models.FloatField(null=True, blank=True)
     subdomain_subdomains_linking = models.IntegerField(null=True, blank=True)
     root_domain_root_domains_linking = models.IntegerField(null=True, blank=True)
     mozrank_10 = models.FloatField(null=True, blank=True)
@@ -65,9 +65,9 @@ class URLMetrics(models.Model):
         for k,v in rd.items():
             for fk, fv in URLMetrics.flag_map.items():
                 if fv[0] == k:
-                    print k, v, fk, fv
+                    # print k, v, fk, fv
                     attr = fk.lower().replace(' ', '_')
-                    print attr
+                    # print attr
                     setattr(self, attr, v)
                     break
 
@@ -75,7 +75,7 @@ class URLMetrics(models.Model):
     def create_cols_bitflag(cls, cols):
         bf = 0
         for col in cols:
-            bf |= flag_map.get(col, ['', 0])[1]
+            bf |= cls.flag_map.get(col, ['', 0])[1]
         return bf
 
 

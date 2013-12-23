@@ -80,17 +80,33 @@ def update_domain_metrics():
         checkables = set()
         for pd in ProjectDomain.objects.filter(state__in=['available']):
             try:
-                m = URLMetrics.objects.get(canonical_url=pd.domain)
+                m = URLMetrics.objects.get(query_url=pd.domain)
             except URLMetrics.DoesNotExist:
                 checkables.add(pd.domain)
         print 'Total number of domains to check: %d' % len(checkables)
         # Gather login details
-        params = AdminSetting.get_moz_params()
         # Set columns to gather (currently all 'free' columns)
-        params.append(('Cols', 1+4+34359738368+68719476736+2048+32+16384+32768+536870912))
+        bf = URLMetrics.create_cols_bitflag([
+            'Title',
+            'Canonical URL',
+            'External Links',
+            'Links',
+            'MozRank 10', 
+            'MozRank Raw',
+            'Subdomain MozRank 10',
+            'Subdomain MozRank Raw',
+            'HTTP Status Code',
+            'Page Authority',
+            'Domain Authority'])
         # use MozAPI to update them
+        wait_time = AdminSetting.get_moz_api_wait_time()
+        limit = int((60.0*60/wait_time)*0.9)
         for i, c in enumerate(checkables):
+            print i, c
+            params = AdminSetting.get_moz_params()
+            params.append(('Cols', bf))
             r = requests.get(AdminSetting.get_moz_api_url()+'url-metrics/'+c, params=params)
+            print r.url
             print r.status_code
             rtext = r.text
             print rtext
@@ -101,10 +117,10 @@ def update_domain_metrics():
                 mm.store_result(rd)
                 mm.last_updated = timezone.now()
                 mm.save()
-            
-            # time.sleep(AdminSetting.get_moz_api_wait_time())
-            time.sleep(1)
-            if i >= 0:
+            r.close()
+            print 'Done with %s, waiting...' % c
+            time.sleep(wait_time)
+            if i >= limit:
                 break
     except Exception as e:
         lock.release()

@@ -23,15 +23,15 @@ app.conf.update(
     CELERY_IMPORTS=('main.tasks', 'domain_checker'),
 
     CELERYBEAT_SCHEDULE = {
-        'check_tasks': {
-            'task': 'main.tasks.check_project_tasks',
-            'schedule': crontab(minute='*/5'),
+        'check_tasks' : {
+            'task' : 'main.tasks.check_project_tasks',
+            'schedule' : crontab(minute='*/5'),
         },
-        'moz_update': {
+        'moz_api' : {
             'task' : 'main.tasks.update_domain_metrics',
-            'schedule' : crontab(minute='*'),
+            'schedule' : crontab(minute='0'),
         },
-    }
+    },
 )
 # app.autodiscover_tasks(lambda: settings.INSTALLED_APPS, related_name='tasks')
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
