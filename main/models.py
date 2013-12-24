@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 
-import hmac, hashlib, base64, time
+import hmac, hashlib, base64, time, datetime
 
 MAX_DOMAIN_LENGTH = 255
 
@@ -314,4 +314,16 @@ class AdminSetting(models.Model):
             return AdminSetting.get_value('live_api_urls_per_request')
         else:
             return AdminSetting.get_value('sandbox_api_urls_per_request')
+
+class MozLastUpdate(models.Model):
+    datetime = models.DateTimeField()
+    retrieved = models.DateTimeField()
+
+    @classmethod
+    def get_most_recent(cls):
+        mr = MozLastUpdate.objects.all(order_by='-retrieved')
+        if len(mr) == 0:
+            return timezone.now()
+        else:
+            return mr[0].datetime
 

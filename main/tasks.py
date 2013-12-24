@@ -11,9 +11,9 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
-from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics, MozLastUpdate
 
-import requests, lockfile
+import requests, lockfile, datetime
 
 NAMECHEAP_LOCK_ID = 'namecheap-lock'
 
@@ -213,6 +213,29 @@ def parse_namecheap_result(rstring):
             u'description' : error.text.strip()})
 
     return (domain_results, error_results)
+
+@app.task(ignore_result=True)
+def check_moz_update():
+    if settings.DEBUG:
+        logging.basicConfig() 
+        logging.getLogger().setLevel(logging.DEBUG)
+        requests_log = logging.getLogger(u'requests.packages.urllib3')
+        requests_log.setLevel(logging.DEBUG)
+        requests_log.propagate = True
+    params = AdminSetting.get_moz_params()
+    r = requests.get(AdminSetting.get_moz_api_url()+'metadata/last_update.json', params=params)
+    status = r.status_code
+    print status
+    if status == 200:
+        rtext = r.text
+        print rtext
+        rd = json.loads(rtext)
+        mu = MozLastUpdate()
+        mu.datetime = timezone.make_aware(datetime.datetime.fromtimestamp(int(rd['last_update'])), timezone.get_current_timezone())
+        mu.retrieved = timezone.now()
+        mu.save()
+    r.close()
+
 
 @app.task(ignore_result=True)
 def check_project_domains(project_id):

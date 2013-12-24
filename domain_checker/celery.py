@@ -31,6 +31,10 @@ app.conf.update(
             'task' : 'main.tasks.update_domain_metrics',
             'schedule' : crontab(minute='0'),
         },
+        'moz_api_update' : {
+            'task' : 'main.tasks.check_moz_update',
+            'schedule' : crontab(hour='0'),
+        },
     },
 )
 # app.autodiscover_tasks(lambda: settings.INSTALLED_APPS, related_name='tasks')
