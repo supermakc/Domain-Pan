@@ -64,6 +64,27 @@
 </table>
 {% endif %}
 
+{% if project.get_measured_domains|length > 0 %}
+<h3>URL Metrics</h3>
+<p class="text-muted">Please note that metrics are collected only on domains found to be <strong>available</strong>.  Domains whose metrics have not been collected yet are not listed here.  Also be aware that the process for gathering URL metrics <strong>may take some time</strong> to complete.</p>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Domain Name</th><th>MozRank</th><th>Link Score</th><th>Page Authority</th><th>Domain Authority</th>
+    </tr>
+  </thead>
+  {% for md in project.get_measured_domains %}
+  <tr>
+    <td>{{ md.query_url }}</td>
+    <td>{{ md.mozrank_10 }}</td>
+    <td>{{ md.links }}</td>
+    <td>{{ md.page_authority }}</td>
+    <td>{{ md.domain_authority }}</td>
+  </tr> 
+  {% endfor %}
+</table>
+{% endif %}
+
 {% if unregisterables|length > 0 %}
 <h3>Unregisterable Domains</h3>
 

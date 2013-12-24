@@ -527,7 +527,18 @@ def project(request):
         # progress = '%.2f' % ((len(completed_domains)*100.0)/len(project_domains))
         progress = '%.2f' % project.percent_complete()
 
-        return render(request, 'main/project.html', { 'project' : project, 'project_file' : project_file, 'domains' : checkable_domains, 'progress' : progress , 'errors' : error_domains, 'unregisterables' : unregisterable_domains, 'specials' : special_domains, 'project_error_formatted' : None if project.error is None else project.error.replace('\n', '<br />') })
+        return render(
+            request, 
+            'main/project.html', {
+                'project' : project, 
+                'project_file' : project_file, 
+                'domains' : checkable_domains, 
+                'progress' : progress , 
+                'errors' : error_domains, 
+                'unregisterables' : unregisterable_domains, 
+                'specials' : special_domains, 
+                'project_error_formatted' : None if project.error is None else project.error.replace('\n', '<br />') 
+        })
     except UserProject.DoesNotExist as e:
         request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
         request.session['profile_messagetype'] = 'danger'
@@ -541,7 +552,7 @@ def manual_update_tlds(request):
     request.session['profile_message'] = 'Top level domain information is being synchronized from NameCheap.'
     request.session['profile_messagetype'] = 'success'
 
-    return redirect('/profile')
+    return redirect('admin_settings')
 
 def manual_update_metrics(request):
     if not request.user.is_authenticated() or not request.user.is_superuser:
@@ -551,7 +562,7 @@ def manual_update_metrics(request):
     request.session['profile_message'] = 'Manual URL metrics update initiated.'
     request.session['profile_messagetype'] = 'success'
 
-    return redirect('/profile')
+    return redirect('admin_settings')
 
 def manual_update_states(request):
     if not request.user.is_authenticated() or not request.user.is_superuser:
@@ -566,7 +577,7 @@ def manual_update_states(request):
     request.session['profile_message'] = 'Manual project state update complete.'
     request.session['profile_messagetype'] = 'success'
 
-    return redirect('/profile')
+    return redirect('admin_settings')
 
 def admin_settings(request):
     if not request.user.is_authenticated():

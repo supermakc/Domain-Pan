@@ -48,7 +48,7 @@ class URLMetrics(models.Model):
         'Subdomain Linking' : ['uifq', 512],
         'Root Domains Linking' : ['uipl', 1024],
         'Links' : ['uid', 2048],
-        'Subdomain Subdomains Linking' : ['uid', 4096],
+        'Subdomain Subdomains Linking' : ['fid', 4096],
         'Root Domain Root Domains Linking' : ['pid', 8192],
         'MozRank 10' : ['umrp', 16384],
         'MozRank Raw' : ['umrr', 16384],
@@ -65,9 +65,10 @@ class URLMetrics(models.Model):
         for k,v in rd.items():
             for fk, fv in URLMetrics.flag_map.items():
                 if fv[0] == k:
-                    # print k, v, fk, fv
+                    print k, v, fk, fv
                     attr = fk.lower().replace(' ', '_')
-                    # print attr
+                    print attr
+                    # val = 0 if val '0' else val
                     setattr(self, attr, v)
                     break
 
@@ -124,17 +125,20 @@ class UserProject(models.Model):
         return self.projectdomain_set.filter(state__in=['available'])
         # return self.projectdomain_set.all()
 
-    # Returns the number of domains that have been measured
-    def num_measured_domains(self):
-        m = 0
+    def get_measured_domains(self):
+        md = []
         for pd in self.measurable_domains():
             try:
                 um = URLMetrics.objects.get(query_url=pd.domain)
                 if um.is_uptodate():
-                    m += 1
+                    md.append(um)
             except URLMetrics.DoesNotExist:
                 pass
-        return m
+        return md
+
+    # Returns the number of domains that have been measured
+    def num_measured_domains(self):
+        return len(self.get_measured_domains())
 
     def percent_complete(self):
         checkable_domains = len(self.projectdomain_set.all())
