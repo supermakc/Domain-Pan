@@ -21,9 +21,9 @@ class Command(BaseCommand):
                 for um in ums:
                     um.delete()
                     dur += 1
-        print 'Statistics:'
-        print '  Linked domain entries: %d' % pda
-        print '  Unlinked domain entries: %d' % pdr
-        print '  Duplicate metric records removed: %d' % dur
-        print '  Total metric records remaining: %d' % (len(URLMetrics.objects.all()))
+        self.stdout.write('Statistics:')
+        self.stdout.write('  Linked domain entries: %d' % pda)
+        self.stdout.write('  Unlinked domain entries: %d' % pdr)
+        self.stdout.write('  Duplicate metric records removed: %d' % dur)
+        self.stdout.write('  Total metric records remaining: %d' % (len(URLMetrics.objects.all())))
 
