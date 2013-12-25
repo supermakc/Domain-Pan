@@ -208,8 +208,7 @@ class ProjectDomain(models.Model):
     state = models.CharField(max_length=20, choices=DOMAIN_STATES)
     error = models.TextField(blank=True, null=True, default=None)
     last_checked = models.DateTimeField()
-
-    # url_metrics = models.ForeignKey(URLMetrics, null=True, blank=True)
+    url_metrics = models.ForeignKey(URLMetrics, null=True, blank=True, default=None)
 
 # Association between projects and background(Celery) tasks
 class ProjectTask(models.Model):
