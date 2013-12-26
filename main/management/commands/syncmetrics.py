@@ -11,7 +11,7 @@ class Command(BaseCommand):
         for pd in ProjectDomain.objects.all():
             ums = URLMetrics.objects.filter(query_url=pd.domain).order_by('-last_updated')
             if len(ums) == 0:
-                pdr = 0
+                pdr += 1
                 pd.url_metrics = None
             else:
                 pda += 1
