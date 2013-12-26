@@ -133,7 +133,8 @@ def extract_domains(file_content, fail_email, filename):
     for url in file_content.split('\n'):
         ln += 1
         logger.debug(type(url))
-        url = url.decode('utf-8')
+        # url = url.decode('utf-8')
+        # url = unicode(url, errors='ignore')
         if len(url) == 0 or url[0] in '/\n':
             continue
         # logger.debug(url.strip())
@@ -287,7 +288,7 @@ def upload_project(request):
         logger.debug('Attempting to upload project...')
         if uploadform.is_valid():
             logger.debug('Form is valid.')
-            file_contents = request.FILES['file'].read()
+            file_contents = unicode(request.FILES['file'].read(), errors='ignore')
             (domain_list, failed_domains, failed_lines) = extract_domains(file_contents, request.user.email, request.FILES['file'].name)
             projectdomains = []
             with transaction.atomic():
