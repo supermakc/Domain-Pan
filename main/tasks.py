@@ -78,9 +78,14 @@ def update_domain_metrics():
     try:
         # find all domains in need of updating        
         checkables = set()
-        for pd in ProjectDomain.objects.filter(state__in=['available']):
+        for pd in ProjectDomain.objects.filter(state__in=['available'], url_metrics=None):
             try:
                 m = URLMetrics.objects.get(query_url=pd.domain)
+                if m.is_uptodate():
+                    pd.url_metrics_id = m.id
+                    pd.save()
+                else:
+                    checkables.add(pd.domain)
             except URLMetrics.DoesNotExist:
                 checkables.add(pd.domain)
         print 'Total number of domains to check: %d' % len(checkables)
@@ -101,6 +106,7 @@ def update_domain_metrics():
         # use MozAPI to update them
         wait_time = AdminSetting.get_moz_api_wait_time()
         limit = int((60.0*60/wait_time)*0.9)
+
         for i, c in enumerate(checkables):
             print i, c
             params = AdminSetting.get_moz_params()
@@ -112,11 +118,17 @@ def update_domain_metrics():
             print rtext
             if r.status_code == 200:
                 rd = json.loads(rtext)
-                mm = URLMetrics()
-                mm.query_url = c
+                try:
+                    mm = URLMetrics.objects.get(query_url=c)
+                except:
+                    mm = URLMetrics()
+                    mm.query_url = c
                 mm.store_result(rd)
                 mm.last_updated = timezone.now()
                 mm.save()
+                for pd in ProjectDomain.objects.filter(domain=c):
+                    pd.url_metrics = mm
+                    pd.save()
                 for mp in UserProject.objects.filter(state='measuring'):
                     mp.update_state()
             r.close()

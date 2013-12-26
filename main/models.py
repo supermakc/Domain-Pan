@@ -74,7 +74,9 @@ class URLMetrics(models.Model):
 
     def is_uptodate(self):
         # TODO: Do correct check here based on a sensible expiry period
-        return True
+        # return True
+        last_moz_update = MozLastUpdate.get_most_recent()
+        return last_moz_update < self.last_updated
 
     @classmethod
     def create_cols_bitflag(cls, cols):
@@ -123,17 +125,12 @@ class UserProject(models.Model):
 
     def measurable_domains(self):
         return self.projectdomain_set.filter(state__in=['available'])
-        # return self.projectdomain_set.all()
 
     def get_measured_domains(self):
         md = []
         for pd in self.measurable_domains():
-            try:
-                um = URLMetrics.objects.get(query_url=pd.domain)
-                if um.is_uptodate():
-                    md.append(um)
-            except URLMetrics.DoesNotExist:
-                pass
+            if pd.url_metrics is not None:
+                md.append(pd.url_metrics)
         return md
 
     # Returns the number of domains that have been measured
@@ -320,7 +317,7 @@ class MozLastUpdate(models.Model):
 
     @classmethod
     def get_most_recent(cls):
-        mr = MozLastUpdate.objects.all(order_by='-retrieved')
+        mr = MozLastUpdate.objects.all().order_by('-retrieved')
         if len(mr) == 0:
             return timezone.now()
         else:
