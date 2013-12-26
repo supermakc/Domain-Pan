@@ -147,7 +147,7 @@ def check_project_tasks():
     projects = UserProject.objects.all()
     tl = get_task_list()
     for project in projects:
-        if not project.state in [u'completed', u'error', u'paused'] and not is_project_task_active(project, tl):
+        if not project.state in [u'measuring', u'completed', u'error', u'paused'] and not is_project_task_active(project, tl):
             async_result = check_project_domains.delay(project.id)
             task_id = async_result.id
             print task_id
