@@ -113,3 +113,7 @@ ul.domainlist li {
   }
 }
 */
+
+.clear {
+    clear: both;
+}

@@ -13,6 +13,9 @@
     <!-- Bootstrap core CSS -->
     <link href="/css/bootstrap.css" rel="stylesheet">
 
+    <!-- DataTables styles -->
+    <link href="/css/jquery.dataTables.css" rel="stylesheet">
+
     <!-- Custom styles for this template -->
     <link href="/css/custom.css" rel="stylesheet">
 
@@ -130,6 +133,7 @@
     <script src="https://code.jquery.com/jquery.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="js/bootstrap.js"></script>
+    <script src="js/jquery.dataTables.js"></script>
     <script type="text/javascript">
       function submit_upload() {
         // alert('Test.');
@@ -259,6 +263,7 @@
 	return false;
       }
       </script>
+      {% block scripts %}{% endblock %}
   </body>
 </html>
 
