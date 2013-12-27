@@ -52,9 +52,11 @@
             <li>
               <a href="#" class="dropdown-toggle" data-toggle="dropdown"><em>{{ user.username }}</em> <b class="caret"></b></a>
               <ul class="dropdown-menu">
+                <li><a href="/project_list">Projects</a></li>
                 <li><a href="/profile">Profile</a></li>
                 {% if user.is_staff %}
-                  <li><a href="/admin_settings">Admin</a></li>
+                  <li class="divider"></li>
+                  <li><a href="/admin_settings">Administration</a></li>
                 {% endif %}
                 <li class="divider"></li>
                 <li><a href="/logout_user">Logout</a></li>

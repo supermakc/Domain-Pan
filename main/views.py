@@ -229,30 +229,6 @@ def profile(request):
         profile_messagetype = request.session['profile_messagetype']
         del request.session['profile_message']
         del request.session['profile_messagetype']
-    uploadform = URLFileForm(request.POST, request.FILES)
-    projects = UserProject.objects.filter(user_id=request.user.id)
-    # tl = get_task_list()
-    for project in projects:
-        try:
-            project.file = UploadedFile.objects.get(project_id=project.id)
-            logger.debug('Filename: %s' % project.file.filename)
-        except UploadedFile.DoesNotExist:
-            pass
-        project.domains = ProjectDomain.objects.filter(project_id=project.id)
-
-        """
-        # Automatic restart of projects
-        if not project.state in ['completed', 'error', 'paused'] and not is_project_task_active(project, tl):
-            task_id = check_project_domains.delay(project.id)
-            logger.debug(task_id)
-            project_task = ProjectTask()
-            project_task.project_id = project.id
-            project_task.celery_id = task_id
-            project_task.type = 'checker'
-            project_task.save()
-
-            logger.debug('Restarted task for project %d (task id: %s)' % (project.id, task_id))
-        """
 
     exclusions = None
     preserved = None
@@ -269,14 +245,41 @@ def profile(request):
         'main/profile.html', 
         {
             'user' : request.user, 
-            'projects' : projects, 
-            'uploadform' : uploadform, 
             'profile_message' : profile_message, 
             'profile_messagetype' : profile_messagetype, 
             'exclusions' : exclusions, 
             'preserved' : preserved,
             'staff' : staff,
             'admin' : admin})
+
+def project_list(request):
+    if not request.user.is_authenticated():
+        return redirect('/')
+    profile_message = None
+    profile_messagetype = None
+    if request.session.has_key('profile_message'):
+        profile_message = request.session['profile_message']
+        profile_messagetype = request.session['profile_messagetype']
+        del request.session['profile_message']
+        del request.session['profile_messagetype']
+    uploadform = URLFileForm(request.POST, request.FILES)
+    projects = UserProject.objects.filter(user_id=request.user.id)
+    for project in projects:
+        try:
+            project.file = UploadedFile.objects.get(project_id=project.id)
+            logger.debug('Filename: %s' % project.file.filename)
+        except UploadedFile.DoesNotExist:
+            pass
+        project.domains = ProjectDomain.objects.filter(project_id=project.id)
+    return render(
+        request,
+        'main/project_list.html',
+        {
+            'user' : request.user,
+            'projects' : projects,
+            'uploadform' : uploadform, 
+            'profile_message' : profile_message,
+            'profile_messagetype' : profile_messagetype,})
 
 def upload_project(request):
     if not request.user.is_authenticated():
@@ -325,12 +328,12 @@ def upload_project(request):
                 request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
                 request.session['profile_messagetype'] = 'success'
 
-                return redirect('/profile')
+                return redirect('/project_list')
         else:
             logger.debug(uploadform.errors)
             request.session['profile_message'] = '<b>Project not uploaded.</b> The following errors occurred: %s' % uploadform.errors
             request.session['profile_messagetype'] = 'danger'
-            return redirect('/profile')
+            return redirect('/profile_list')
 
 
 def change_details(request):

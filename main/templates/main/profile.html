@@ -17,64 +17,6 @@
   {% endif %}
   <hr />
 
-  <h2>Projects</h2>
-  {% if projects|length == 0 %}
-    <p class="text-muted"><em>You have not uploaded any projects.</em></p>
-  {% else %}
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>Filename</th><th>Uploaded</th><th># Domains</th><th>Status</th><th>Progress</th><th>Metrics</th><th>Action</th>
-        </tr>
-      </thead>
-      {% for project in projects %}
-        <tr {% if project.state == 'completed'  %}class="success"{% elif project.state == 'error' %}class="danger"{% elif project.state == 'measuring' %}class="warning"{% endif %}>
-          <td>{{ project.file.filename }}</td><td>{{ project.created }}</td><td>{{ project.domains|length }}</td>
-          <td>
-            {{ project.get_state_display }}
-            <!--
-            {% if project.state == 'completed' %}
-              <b>Complete</b> ({{ project.percent_complete_str }}%)
-            {% elif project.state == 'error' %}
-              <b>Error</b> ({{ project.percent_complete_str }}%)
-            {% else %}
-              {{ project.percent_complete_str }}%
-            {% endif %}
-            -->
-          </td>
-          <td>
-            {{ project.percent_complete_str }}%
-          </td>
-          <td>
-            {{ project.num_measured_domains }} / {{ project.measurable_domains|length }}
-          </td>
-          <td>
-            <a role="button" class="btn btn-info btn-xs" href="/project?id={{ project.id }}">
-              {% if project.state == 'completed' %}
-                View results
-              {% elif project.state == 'error' %}
-                View details
-              {% else %}
-                View progress
-              {% endif %}
-            </a>
-            <a role="button" class="btn btn-danger btn-xs" href="#" onclick="confirm_project_delete('{{ project.file.filename }}', '{{ project.id }}');">Delete</a>
-          </td>
-        </tr>
-      {% endfor %}
-    </table>
-  {% endif %}
-
-  <h3>Create New Project</h3>
-  <form name='upload' action="/upload_project" method="post" {% if uploadform.is_multipart %}enctype="multipart/form-data"{% endif %}>{% csrf_token %}
-    <div class="form-group">
-      <!-- <label for="{{ form.file.id_for_label }}">{{ form.file.label }}</label> -->
-      {{ uploadform.file }}
-    </div>
-    <button type="submit" class="btn btn-primary">Create new project</button>
-  </form>
-
-  <hr />
   <h2>Your Details</h2>
 
   <h3 class="text-muted">Change Details</h3>
