@@ -70,16 +70,16 @@
 <table class="table table-striped">
   <thead>
     <tr>
-      <th>Domain Name</th><th>MozRank</th><th>Link Score</th><th>Page Authority</th><th>Domain Authority</th>
+      <th>Domain Name</th><th>MozRank</th><th>Incoming Links</th><th>Page Authority</th><th>Domain Authority</th>
     </tr>
   </thead>
   {% for md in project.get_measured_domains %}
   <tr>
     <td>{{ md.query_url }}</td>
-    <td>{{ md.mozrank_10 }}</td>
-    <td>{{ md.links }}</td>
-    <td>{{ md.page_authority }}</td>
-    <td>{{ md.domain_authority }}</td>
+    <td>{{ md.mozrank_10|floatformat:2 }}</td>
+    <td>{{ md.links|floatformat:-2 }}</td>
+    <td>{{ md.page_authority|floatformat:2 }}</td>
+    <td>{{ md.domain_authority|floatformat:2 }}</td>
   </tr> 
   {% endfor %}
 </table>
