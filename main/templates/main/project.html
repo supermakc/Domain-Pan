@@ -31,7 +31,16 @@
 <p>Domains to check: {{ domains|length }}</p>
 <p>Last updated: {{ project.updated }}</p>
 
-<hr />
+<ul class="nav nav-pills">
+  <li class="active"><a href="#domains" data-toggle="pill">Availability<span class="badge">{{ domains|length }}</span></a></li>
+  <li><a href="#url-metrics" data-toggle="pill">URL Metrics<span class="badge">{{ project.get_measured_domains|length }}</span></a></li>
+  <li><a href="#unregisterable" data-toggle="pill">Unregisterable<span class="badge">{{ unregisterables|length }}</span></a></li>
+  <li><a href="#special" data-toggle="pill">Special<span class="badge">{{ specials|length }}</span></a></li>
+  <li><a href="#errors" data-toggle="pill">Errors<span class="badge">{{ errors|length }}</span>{% if project.parse_errors %}<span class="badge">parse</span>{% endif %}</a></li>
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane fade in active" id="domains">
 {% if domains|length > 0 %}
 <h3>Domain Check Results</h3>
 
@@ -63,7 +72,8 @@
   {% endfor %}
 </table>
 {% endif %}
-
+</div>
+<div class="tab-pane fade" id="url-metrics">
 {% if project.get_measured_domains|length > 0 %}
 <h3>URL Metrics</h3>
 <p class="text-muted">Please note that metrics are collected only on domains found to be <strong>available</strong>.  Domains whose metrics have not been collected yet are not listed here.  Also be aware that the process for gathering URL metrics <strong>may take some time</strong> to complete.</p>
@@ -85,7 +95,9 @@
 </table>
 <div class="clear"></div>
 {% endif %}
+</div>
 
+<div class="tab-pane fade" id="unregisterable">
 {% if unregisterables|length > 0 %}
 <h3>Unregisterable Domains</h3>
 
@@ -102,7 +114,9 @@
   {% endfor %}
 </table>
 {% endif %}
+</div>
 
+<div class="tab-pane fade" id="special">
 {% if specials|length > 0 %}
 <h3>Special Domains</h3>
 
@@ -119,7 +133,9 @@
   {% endfor %}
 </table>
 {% endif %}
+</div>
 
+<div class="tab-pane fade" id="errors">
 {% if errors|length > 0 %}
 <h3>Errors</h3>
 
@@ -142,8 +158,10 @@
 <p>The following errors were encountered when parsing the submitted project file:</p>
 <p><pre class=".pre-scrollable">{{ project.parse_errors }}</pre></p>
 {% endif %}
+</div>
 
-<p><a href="/profile">Return to profile</a>.</p>
+</div>
+<p><a href="/project_list">Return to project listing</a>.</p>
 </div>
 {% endblock %}
 {% block scripts %}
