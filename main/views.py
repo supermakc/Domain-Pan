@@ -263,7 +263,7 @@ def project_list(request):
         del request.session['profile_message']
         del request.session['profile_messagetype']
     uploadform = URLFileForm(request.POST, request.FILES)
-    projects = UserProject.objects.filter(user_id=request.user.id)
+    projects = UserProject.objects.filter(user_id=request.user.id).order_by('-created')
     for project in projects:
         try:
             project.file = UploadedFile.objects.get(project_id=project.id)
