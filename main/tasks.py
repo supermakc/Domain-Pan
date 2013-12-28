@@ -289,11 +289,19 @@ def check_project_domains(project_id):
             params.append((u'Command', u'namecheap.domains.check'))
             params.append((u'DomainList', domain_str))
 
-            print u'Domains that willbe checked: %s' % domain_str
+            print u'Domains that will be checked: %s' % domain_str
             print params
-            r = requests.get(AdminSetting.get_api_url(), params=params)
-            # print r.url
-            # print r.headers
+            retries = 0
+            while True:
+                try:
+                    r = requests.get(AdminSetting.get_api_url(), params=params)
+                    break
+                except requests.exceptions.ConnectionError as ce:
+                    retries += 1
+                    if retries >= 3:
+                        raise ce
+                    time.sleep(5)
+
             sc = r.status_code
             print u'Status code: %d' % sc
 
@@ -341,6 +349,7 @@ def check_project_domains(project_id):
             else:
                 print u'Warning: Unexpected response while calling API code: %d, will retry after delay' % sc
 
+            r.close()
             time.sleep(AdminSetting.get_api_wait_time())
             lock.release()
         except Exception as e:
