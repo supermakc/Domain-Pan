@@ -73,3 +73,12 @@
   {% endif %}
 </div>
 {% endblock %}
+{% block scripts %}
+<script type="text/javascript">
+function confirm_project_delete(pname, pid) {
+  if (confirm('Are you sure you want to delete the project "'+pname+'"?')) {
+    document.location.href = '/delete_project?pid='+pid
+  }
+}
+</script>
+{% endblock %}

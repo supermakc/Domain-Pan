@@ -82,7 +82,7 @@ def update_domain_metrics():
             try:
                 m = URLMetrics.objects.get(query_url=pd.domain)
                 if m.is_uptodate():
-                    pd.url_metrics_id = m.id
+                    pd.url_metrics = m
                     pd.save()
                 else:
                     checkables.add(pd.domain)

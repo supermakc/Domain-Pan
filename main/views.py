@@ -216,12 +216,12 @@ def check_login(request):
 def logout_user(request):
     if request.user.is_authenticated():
         logout(request)
-    return redirect('/')
+    return redirect('index')
 
 @login_required(login_url='/')
 def profile(request):
     if not request.user.is_authenticated():
-        return redirect('/')
+        return redirect('index')
     profile_message = None
     profile_messagetype = None
     if request.session.has_key('profile_message'):
@@ -254,7 +254,7 @@ def profile(request):
 
 def project_list(request):
     if not request.user.is_authenticated():
-        return redirect('/')
+        return redirect('index')
     profile_message = None
     profile_messagetype = None
     if request.session.has_key('profile_message'):
@@ -284,7 +284,7 @@ def project_list(request):
 def upload_project(request):
     if not request.user.is_authenticated():
         logger.debug('Unauthenticated user.')
-        return redirect('/')
+        return redirect('index')
     project = None
     if request.method == 'POST':
         uploadform = URLFileForm(request.POST, request.FILES)
@@ -328,17 +328,17 @@ def upload_project(request):
                 request.session['profile_message'] = 'Project "%s" successfully uploaded.  You will be emailed when domain checking is complete.' % request.FILES['file'].name
                 request.session['profile_messagetype'] = 'success'
 
-                return redirect('/project_list')
+                return redirect('project_list')
         else:
             logger.debug(uploadform.errors)
             request.session['profile_message'] = '<b>Project not uploaded.</b> The following errors occurred: %s' % uploadform.errors
             request.session['profile_messagetype'] = 'danger'
-            return redirect('/profile_list')
+            return redirect('project_list')
 
 
 def change_details(request):
     if not request.user.is_authenticated():
-        return redirect('/')
+        return redirect('index')
     first_name = request.GET['first_name']
     last_name = request.GET['last_name']
     request.user.first_name = first_name
@@ -346,23 +346,23 @@ def change_details(request):
     request.user.save()
     request.session['profile_message'] = 'Your details have been successfully updated'
     request.session['profile_messagetype'] = 'success'
-    return redirect('/profile')
+    return redirect('profile')
 
 def change_email(request):
     if not request.user.is_authenticated():
-        return redirect('/')
+        return redirect('index')
     email = request.GET['email1']
     request.user.email = email
     request.user.save()
     request.session['profile_message'] = 'Your email has been successfully updated'
     request.session['profile_messagetype'] = 'success'
-    return redirect('/profile')
+    return redirect('profile')
 
 def change_password(request):
     if not request.user.is_authenticated():
-        return redirect('/')
+        return redirect('index')
     if not request.method == 'GET':
-        return redirect('/profile')
+        return redirect('profile')
     oldpassword = request.GET['oldpassword']
     newpassword = request.GET['newpassword1']
     user = authenticate(username=request.user.username, password=oldpassword)
@@ -374,15 +374,15 @@ def change_password(request):
     else:
         request.session['profile_message'] = 'Password unchanged: the entered old password is invalid.'
         request.session['profile_messagetype'] = 'danger'
-    return redirect('/profile')
+    return redirect('profile')
 
 def delete_project(request):
     if not request.user.is_authenticated():
-        return redirect('/')
+        return redirect('index')
     pid = int(request.GET['pid'])
     project = UserProject.objects.get(id=pid)
     if project.user_id != request.user.id:
-        return redirect('/')
+        return redirect('index')
     try:
         pname = UploadedFile.objects.get(project_id=project.id).filename
     except UploadedFile.DoesNotExist:
@@ -391,12 +391,12 @@ def delete_project(request):
         deep_delete_project(project)
     request.session['profile_message'] = 'Project "%s" has been deleted.' % pname
     request.session['profile_messagetype'] = 'success'
-    return redirect('/profile')
+    return redirect('project_list')
 
 @transaction.atomic
 def update_admin(request):
     if not request.user.is_authenticated() or not request.user.is_staff or request.method != 'POST':
-        return redirect('/')
+        return redirect('index')
     exclusions = request.POST['exclusions']
     preserved = request.POST['preserved']
 
@@ -429,7 +429,7 @@ def update_admin(request):
                 if len(request.POST[ad.key]) == 0:
                     request.session['profile_message'] = '<b>Error updating settings:</b> Field "%s" cannot be blank' % ad.key
                     request.session['profile_messagetype'] = 'error'
-                    return redirect('/')
+                    return redirect('admin_settings')
                 else:
                     ad.value = request.POST[ad.key]
                     ad.save()
@@ -452,7 +452,7 @@ def update_admin(request):
 
 def register_user(request):
     if request.method != 'POST':
-        return redirect('/')
+        return redirect('index')
 
     username = request.POST['username']
     first_name = request.POST['first_name']
@@ -466,7 +466,7 @@ def register_user(request):
     user = authenticate(username=username, password=password)
     login(request, user)
 
-    return redirect('/profile')
+    return redirect('profile')
 
 @csrf_exempt
 def check_username(request):
@@ -481,7 +481,7 @@ def check_username(request):
 def reset_user(request):
     result = {'result':'error', 'message':'No user exists with that email.'}
     if request.method != 'POST':
-        return redirect('/')
+        return redirect('index')
 
     email = request.POST['email']
     user = User.objects.filter(email=email)
@@ -509,7 +509,7 @@ def reset_user(request):
 
 def project(request):
     if not request.user.is_authenticated() or request.method != 'GET':
-        return redirect('/')
+        return redirect('index')
     
     try:
         project = UserProject.objects.get(id=request.GET['id'])
@@ -517,7 +517,7 @@ def project(request):
         if project is None or project.user_id != request.user.id:
             request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
             request.session['profile_messagetype'] = 'danger'
-            return redirect('/profile')
+            return redirect('profile')
 
         project_file = UploadedFile.objects.get(project_id=project.id)
 
@@ -546,11 +546,11 @@ def project(request):
     except UserProject.DoesNotExist as e:
         request.session['profile_message'] = 'The specified project does not exist or belongs to another user.'
         request.session['profile_messagetype'] = 'danger'
-        return redirect('/profile')
+        return redirect('profile')
 
 def manual_update_tlds(request):
     if not request.user.is_authenticated() or not request.user.is_superuser:
-        return redirect('/')
+        return redirect('index')
 
     update_tlds.delay()
     request.session['profile_message'] = 'Top level domain information is being synchronized from NameCheap.'
@@ -560,7 +560,7 @@ def manual_update_tlds(request):
 
 def manual_update_metrics(request):
     if not request.user.is_authenticated() or not request.user.is_superuser:
-        return redirect('/')
+        return redirect('index')
 
     update_domain_metrics.delay()
     request.session['profile_message'] = 'Manual URL metrics update initiated.'
@@ -570,7 +570,7 @@ def manual_update_metrics(request):
 
 def manual_update_states(request):
     if not request.user.is_authenticated() or not request.user.is_superuser:
-        return redirect('/')
+        return redirect('index')
 
     for p in UserProject.objects.all():
         p.update_state()
