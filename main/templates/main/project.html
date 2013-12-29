@@ -7,7 +7,7 @@
 <div class="container">
 <h1>Project Progress</h1>
 
-<p>Viewing details for project '{{ project_file.filename }}' (or return to <a href="/profile">profile</a>).</p>
+<p>Viewing details for project '{{ project_file.filename }}' (or return to <a href="{% url "main.views.project_list" %}">project listing</a>).</p>
 
 <h3>Summary</h3>
 
@@ -94,6 +94,8 @@
   {% endfor %}
 </table>
 <div class="clear"></div>
+{% else %}
+<p class="text-muted">No metrics are available for this project yet.  Please note that only <strong>available</strong> domains are scheduled for metrics testing.</p>
 {% endif %}
 </div>
 
@@ -113,6 +115,8 @@
   </tr>
   {% endfor %}
 </table>
+{% else %}
+<p class="text-muted">No unregisterable domains have been found for this project.</p>
 {% endif %}
 </div>
 
@@ -132,10 +136,15 @@
   </tr>
   {% endfor %}
 </table>
+{% else %}
+<p class="text-muted">No special domains were found in this project.</p>
 {% endif %}
 </div>
 
 <div class="tab-pane fade" id="errors">
+{% if errors|length == 0 and not project.parse_errors %}
+<p class="text-muted">No errors were found for this project.</p>
+{% endif %}
 {% if errors|length > 0 %}
 <h3>Errors</h3>
 
@@ -161,7 +170,7 @@
 </div>
 
 </div>
-<p><a href="/project_list">Return to project listing</a>.</p>
+<p><a href="{% url "main.views.project_list" %}">Return to project listing</a>.</p>
 </div>
 {% endblock %}
 {% block scripts %}

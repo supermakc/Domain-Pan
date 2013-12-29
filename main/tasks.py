@@ -319,6 +319,14 @@ def check_project_domains(project_id):
                                 d.last_checked = timezone.now()
                                 d.save()
                             break
+                        elif int(er[u'number']) == 3031510:
+                            for domain, d in domains.items():
+                                d.state = u'error'
+                                d.error = u'API denies authorisation to check this domain (reason not given)'
+                                d.is_checked = True
+                                d.last_checked = timezone.now()
+                                d.save()
+                            break
                         else:
                             # Assume catastrophic error
                             error_str = u'the API backend returned the following unrecoverable error(s):\n\n'
