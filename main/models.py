@@ -1,6 +1,7 @@
-from django.db import models
-from django.utils import timezone
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.db import models, transaction
+from django.utils import timezone
 
 import hmac, hashlib, base64, time, datetime
 
@@ -9,9 +10,10 @@ MAX_DOMAIN_LENGTH = 255
 # MozAPI url-metric result for a single URL
 class URLMetrics(models.Model):
     query_url = models.CharField(max_length=MAX_DOMAIN_LENGTH)
+    last_updated = models.DateTimeField(null=True, blank=True, default=None)
+
     title = models.TextField(null=True, blank=True)
     canonical_url = models.TextField(null=True, blank=True)
-    last_updated = models.DateTimeField(null=True, blank=True)
 
     subdomain = models.CharField(max_length=MAX_DOMAIN_LENGTH, null=True, blank=True)
     root_domain = models.CharField(max_length=MAX_DOMAIN_LENGTH, null=True, blank=True)
@@ -73,8 +75,8 @@ class URLMetrics(models.Model):
                     break
 
     def is_uptodate(self):
-        # TODO: Do correct check here based on a sensible expiry period
-        # return True
+        if self.last_updated is None:
+            return False
         last_moz_update = MozLastUpdate.get_most_recent()
         return last_moz_update < self.last_updated
 
@@ -105,12 +107,12 @@ class PreservedDomain(models.Model):
 # User projects
 class UserProject(models.Model):
     PROJECT_STATES = (
-        ('parsing', 'Parsing domains'),
-        ('checking', 'Checking domains'),
-        ('measuring', 'Checking URL metrics'),
-        ('paused', 'Paused'),
-        ('completed', 'Completed'),
-        ('error', 'Error'))
+        (u'parsing', u'Parsing domains'),
+        (u'checking', u'Checking domains'),
+        (u'measuring', u'Checking URL metrics'),
+        (u'paused', u'Paused'),
+        (u'completed', u'Completed'),
+        (u'error', u'Error'))
     user = models.ForeignKey(User)
     created = models.DateTimeField(auto_now_add=True)
     state = models.CharField(max_length=20, choices=PROJECT_STATES)
@@ -118,61 +120,71 @@ class UserProject(models.Model):
     parse_errors = models.TextField(blank=True, null=True, default=None)
     creation_datetime = models.DateTimeField(blank=True, auto_now_add=True)
     completed_datetime = models.DateTimeField(blank=True, null=True)
-    updated = models.DateTimeField()
+    completion_email_sent = models.BooleanField(default=False)
+    last_updated = models.DateTimeField(null=True, blank=True, default=None)
+    urlmetrics = models.ManyToManyField(URLMetrics, through='ProjectMetrics')
 
     def name(self):
         return self.uploadedfile_set.all()[0].filename
 
-    def measurable_domains(self):
-        return self.projectdomain_set.filter(state__in=['available'])
+    def send_completion_email(self):
+        reply_address = AdminSetting.get_value(u'noreply_address')
+        server_address = AdminSetting.get_value(u'server_address')
+        messagebody = (u'The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
+                      u'%s/project?id=%d\n\n' + \
+                      u'Thank you for using Domain Checker.') % (self.name(), server_address, self.id)
+        send_mail(u'Domain Checker - Project "%s" complete' % (self.name()), messagebody, reply_address, [self.user.email])
+
+    def get_measurable_domains(self):
+        return self.urlmetrics.all()
 
     def get_measured_domains(self):
-        md = []
-        for pd in self.measurable_domains():
-            if pd.url_metrics is not None:
-                md.append(pd.url_metrics)
-        return md
+        return URLMetrics.objects.filter(projectmetrics__project=self, projectmetrics__is_checked=True)
+        # return [pm.urlmetrics for pm in ProjectMetrics.objects.filter(project=self,is_checked=True)]
 
-    # Returns the number of domains that have been measured
-    def num_measured_domains(self):
-        return len(self.get_measured_domains())
-
-    def percent_complete(self):
+    def get_percent_complete(self):
         checkable_domains = len(self.projectdomain_set.all())
         checked_domains = len(self.projectdomain_set.filter(is_checked=True))
 
-        measurable_domains = len(self.measurable_domains())
-        measured_domains = self.num_measured_domains()
+        measurable_domains = len(self.get_measurable_domains())
+        measured_domains = len(self.get_measured_domains())
 
-        total_domains = checkable_domains + measurable_domains
         completed_domains = checked_domains + measured_domains
+        total_domains = checkable_domains + measurable_domains
 
         return 100.0 if total_domains == 0 else (completed_domains*100.0) / total_domains
 
-    def percent_complete_str(self):
-        return '%.2f' % self.percent_complete()
+    def get_percent_complete_display(self):
+        return '%.2f' % self.get_percent_complete
 
     def is_running(self):
         return self.state not in ['completed', 'paused', 'error']
 
     def all_checked(self):
-        total_domains = len(self.projectdomain_set.all())
-        checked_domains = len(self.projectdomain_set.filter(is_checked=True))
-        return checked_domains == total_domains
+        return len(self.projectdomain_set.filter(is_checked=False)) == 0
 
     def all_measured(self):
-        return self.num_measured_domains() == len(self.measurable_domains())
+        return len(self.projectmetrics_set.filter(is_checked=False)) == 0
 
     def update_state(self, save=True):
-        if self.state not in ['paused', 'error', 'parsing']:
-            if not self.all_checked():
-                self.state = 'checking'
-            elif not self.all_measured():
-                self.state = 'measuring'
-            else:
-                self.state = 'completed'
-            if save:
-                self.save()
+        with transaction.atomic():
+            if self.state not in ['paused', 'error', 'parsing']:
+                if not self.all_checked():
+                    new_state = 'checking'
+                elif not self.all_measured():
+                    new_state = 'measuring'
+                else:
+                    new_state = 'completed'
+
+                if self.state != new_state:
+                    self.updated = timezone.now()
+                    if new_state == u'completed':
+                        self.send_completion_email()
+                        self.completion_email_sent = True
+                        self.completed_datetime = timezone.now()
+                self.state = new_state
+                if save:
+                    self.save()
 
     def run_time(self):
         if not self.is_running():
@@ -182,6 +194,12 @@ class UserProject(models.Model):
         else:
             return str(timezone.now() - self.creation_datetime)
 
+# Join table relating projects to URL metrics
+class ProjectMetrics(models.Model):
+    project = models.ForeignKey(UserProject)
+    urlmetrics = models.ForeignKey(URLMetrics)
+    is_checked = models.BooleanField(default=False)
+    
 # Uploaded project files
 class UploadedFile(models.Model):
     project = models.ForeignKey(UserProject)
@@ -205,7 +223,7 @@ class ProjectDomain(models.Model):
     state = models.CharField(max_length=20, choices=DOMAIN_STATES)
     error = models.TextField(blank=True, null=True, default=None)
     last_checked = models.DateTimeField()
-    url_metrics = models.ForeignKey(URLMetrics, null=True, blank=True, default=None)
+    # url_metrics = models.ForeignKey(URLMetrics, null=True, blank=True, default=None)
 
 # Association between projects and background(Celery) tasks
 class ProjectTask(models.Model):

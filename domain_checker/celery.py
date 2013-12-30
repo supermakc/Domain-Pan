@@ -29,7 +29,7 @@ app.conf.update(
         },
         'moz_api' : {
             'task' : 'main.tasks.update_domain_metrics',
-            'schedule' : crontab(minute='0'),
+            'schedule' : crontab(minute='*/5'),
         },
         'moz_api_update' : {
             'task' : 'main.tasks.check_moz_update',

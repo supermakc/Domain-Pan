@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
-from main.models import UserProject, ProjectDomain, URLMetrics
+from django.db import transaction
+from main.models import UserProject, ProjectDomain, URLMetrics, ProjectMetrics
 
 from optparse import make_option
 
@@ -14,39 +15,38 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        pdr = 0
-        pdra = 0
-        pda = 0
-        pdaa = 0
-        dur = 0
-        for pd in ProjectDomain.objects.all():
-            ums = URLMetrics.objects.filter(query_url=pd.domain).order_by('-last_updated')
-            if len(ums) == 0:
-                pdr += 1
-                if pd.state == 'available':
-                    pdra += 1
-                if not options['check_only']:
-                    pd.url_metrics = None
-            else:
-                pda += 1
-                if pd.state == 'available':
-                    pdaa += 1
-                if not options['check_only']:
-                    pd.url_metrics = ums[0]
-            if not options['check_only']:
-                pd.save()
-                if len(ums) > 1:
-                    for um in ums[1:]:
-                        um.delete()
-                        dur += 1
-        if not options['check_only']:
+        pm_total = 0
+        pm_checked = 0
+        dup_removed = 0
+        with transaction.atomic():
             for p in UserProject.objects.all():
-                p.update_state()
-        self.stdout.write('Statistics %s:' % ('' if not options['check_only'] else '(check only)'))
-        self.stdout.write('  Linked domain entries: %d' % pda)
-        self.stdout.write('      Available: %d' % pdaa)
-        self.stdout.write('  Unlinked domain entries: %d' % pdr)
-        self.stdout.write('      Available: %d' % pdra)
-        self.stdout.write('  Duplicate metric records removed: %d' % dur)
-        self.stdout.write('  Total metric records remaining: %d' % (len(URLMetrics.objects.all())))
+                for pm in ProjectMetrics.objects.filter(project=p):
+                    pm.delete()
+
+                for pd in p.projectdomain_set.filter(state=u'available'):
+                    ums = URLMetrics.objects.filter(query_url=pd.domain).order_by('-last_updated')
+                    if len(ums) == 0:
+                        um = URLMetrics(query_url=pd.domain)
+                        um.save()
+                        pm = ProjectMetrics(project=p, urlmetrics=um, is_checked=False)
+                        pm.save()
+                    else:
+                        if len(ums) > 1:
+                            for dum in ums[1:]:
+                                dup_removed += 1
+                                dum.delete()
+                        um = ums[0]
+                        pm = ProjectMetrics(project=p, urlmetrics=um)
+                        if um.is_uptodate():
+                            pm.is_checked = True
+                            pm_checked += 1
+                        else:
+                            pm.is_checked = False
+                        pm.save()
+                    pm_total += 1
+        self.stdout.write('Statistics:')
+        self.stdout.write('  Project metric links: %d' % pm_total)
+        self.stdout.write('      Checked/up-to-date: %d' % pm_checked)
+        self.stdout.write('  Duplicate metric records removed: %d' % dup_removed)
+        self.stdout.write('  Total metric records (post-removal): %d' % (len(URLMetrics.objects.all())))
 

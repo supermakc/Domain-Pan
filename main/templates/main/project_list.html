@@ -39,21 +39,12 @@
           <td>{{ project.file.filename }}</td><td>{{ project.created }}</td><td>{{ project.domains|length }}</td>
           <td>
             {{ project.get_state_display }}
-            <!--
-            {% if project.state == 'completed' %}
-              <b>Complete</b> ({{ project.percent_complete_str }}%)
-            {% elif project.state == 'error' %}
-              <b>Error</b> ({{ project.percent_complete_str }}%)
-            {% else %}
-              {{ project.percent_complete_str }}%
-            {% endif %}
-            -->
           </td>
           <td>
-            {{ project.percent_complete_str }}%
+            {{ project.get_percent_complete|floatformat:2 }}%
           </td>
           <td>
-            {{ project.num_measured_domains }} / {{ project.measurable_domains|length }}
+            {{ project.get_measured_domains|length }} / {{ project.get_measurable_domains|length }}
           </td>
           <td>
             <a role="button" class="btn btn-info btn-xs" href="/project?id={{ project.id }}">

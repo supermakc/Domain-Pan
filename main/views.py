@@ -295,7 +295,7 @@ def upload_project(request):
             (domain_list, failed_domains, failed_lines) = extract_domains(file_contents, request.user.email, request.FILES['file'].name)
             projectdomains = []
             with transaction.atomic():
-                project = UserProject(state='checking', updated=timezone.now(), user_id=request.user.id)
+                project = UserProject(state='checking', last_updated=timezone.now(), user_id=request.user.id)
                 parse_error_str = ''
                 if len(failed_lines) > 0:
                     for fd in failed_lines:
@@ -528,16 +528,12 @@ def project(request):
         special_domains = project_domains.filter(state='special')
         error_domains = project_domains.filter(state='error')
 
-        # progress = '%.2f' % ((len(completed_domains)*100.0)/len(project_domains))
-        progress = '%.2f' % project.percent_complete()
-
         return render(
             request, 
             'main/project.html', {
                 'project' : project, 
                 'project_file' : project_file, 
                 'domains' : checkable_domains, 
-                'progress' : progress , 
                 'errors' : error_domains, 
                 'unregisterables' : unregisterable_domains, 
                 'specials' : special_domains, 
@@ -574,9 +570,9 @@ def manual_update_states(request):
 
     for p in UserProject.objects.all():
         p.update_state()
-        logger.debug(p.uploadedfile_set.all()[0])
-        logger.debug(p.num_measured_domains())
-        logger.debug(len(p.measurable_domains()))
+        logger.debug(p.name)
+        logger.debug('  Measurable domains: %d' % len(p.get_measurable_domains()))
+        logger.debug('  Measured domains: %d' % len(p.get_measured_domains()))
 
     request.session['profile_message'] = 'Manual project state update complete.'
     request.session['profile_messagetype'] = 'success'

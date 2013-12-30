@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
-from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics, MozLastUpdate
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics, MozLastUpdate, ProjectMetrics
 
 import requests, lockfile, datetime
 
@@ -66,13 +66,74 @@ def is_project_task_active(project, task_list):
     print u'Unable to find tasks for project %d.' % project.id
     return False
 
+def check_moz_domain(m, cols, wait_time):
+    lock = MozAPILock()
+    lock.acquire()
+    params = AdminSetting.get_moz_params()
+    params.append(('Cols', cols))
+    try:
+        r = requests.get(AdminSetting.get_moz_api_url()+'url-metrics/'+m.query_url, params=params)
+        print r.url
+        print r.status_code
+        rtext = r.text
+        print rtext
+        if r.status_code == 200:
+            rd = json.loads(rtext)
+            m.store_result(rd)
+            m.last_updated = timezone.now()
+            m.save()
+        r.close()
+        print 'Done with %s, waiting...' % c
+        time.sleep(wait_time)
+    except Exception as e:
+        lock.release()
+        raise
+    lock.release()
+
+@app.task(ignore_result=True)
+def update_project_metrics(project_id):
+    p = UserProject.objects.get(id=project_id)
+    cols = URLMetrics.create_cols_bitflag([
+        'Title',
+        'Canonical URL',
+        'External Links',
+        'Links',
+        'MozRank 10', 
+        'MozRank Raw',
+        'Subdomain MozRank 10',
+        'Subdomain MozRank Raw',
+        'HTTP Status Code',
+        'Page Authority',
+        'Domain Authority'])
+    wait_time = AdminSetting.get_moz_api_wait_time()
+    pmetrics = ProjectMetrics.objects.filter(project=p, is_checked=False)
+    for pm in pmetrics:
+        with transaction.atomic():
+            if pm.urlmetrics.is_uptodate():
+                pm.is_checked = True
+                pm.save()
+                continue
+            check_moz_domain(pm.urlmetrics, cols, wait_time)
+            pm.is_checked=True
+            pm.save()
+    p.update_state()
+    p.save()
+        
+
 @app.task(ignore_result=True)
 def update_domain_metrics():
+    with transaction.atomic():
+        for p in UserProject.objects.all():
+            if len(p.projectmetrics_set.filter(is_checked=False)) > 0:
+                update_project_metrics.delay(p.id)
+
+@app.task(ignore_result=True)
+def update_domain_metrics_old():
     lock = MozAPILock()
     try:
         lock.acquire(0)
     except lockfile.AlreadyLocked:
-        # update already in progress, ignore
+        # update already in progress, no specific project specified, ignore
         return
 
     try:
@@ -270,15 +331,8 @@ def check_project_domains(project_id):
                 project.completed_datetime = timezone.now()
                 project.save()
 
-                if project.state == 'completed':
-                    pfile = UploadedFile.objects.get(project_id=project.id)
-                    reply_address = AdminSetting.get_value(u'noreply_address')
-                    server_address = AdminSetting.get_value(u'server_address')
-                    messagebody = (u'The project "%s" has successfully completed.  You can view the results at the following address:\n\n' + \
-                                  u'%s/project?id=%d\n\n' + \
-                                  u'Thank you for using Domain Checker.') % (pfile.filename, server_address, project.id)
-                    user = User.objects.get(id=project.user_id)
-                    send_mail(u'Domain Checker - Project "%s" complete' % (pfile.filename), messagebody, reply_address, [user.email])
+                if project.state == 'measuring':
+                    update_project_metrics.delay(project.id)
                 lock.release()
                 break
 
@@ -349,6 +403,13 @@ def check_project_domains(project_id):
                             d.is_checked = True
                             d.last_checked = timezone.now()
                             d.save()
+                            if d.state == u'available':
+                                try:
+                                    um = URLMetrics.objects.get(query_url=d.domain)
+                                except URLMetrics.DoesNotExist:
+                                    um = URLMetrics(query_url=d.domain)
+                                pm = ProjectMetrics(project=project, urlmetrics=um, is_checked=False)
+                                pm.save()
                             break
 
                 for domain, d in domains.items():
@@ -388,5 +449,8 @@ def check_project_domains(project_id):
 
             # Propagate error to Celery handler
             raise
+        project.update_state()
+        if project.state == u'measuring':
+            update_project_metrics.delay(project.id)
 
 

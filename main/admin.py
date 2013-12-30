@@ -6,7 +6,7 @@ from main.models import UserProject, ProjectDomain, UploadedFile
 # Register your models here.
 
 class UserProjectAdmin(admin.ModelAdmin):
-    list_display = ('filename', 'username', 'last_updated', 'num_domains', 'percent_complete_str')
+    list_display = ('filename', 'username', 'last_updated', 'num_domains', 'get_percent_complete_display')
     list_filter = ('user',)
 
     def filename(self, obj):
