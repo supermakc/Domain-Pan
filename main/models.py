@@ -11,6 +11,7 @@ MAX_DOMAIN_LENGTH = 255
 class URLMetrics(models.Model):
     query_url = models.CharField(max_length=MAX_DOMAIN_LENGTH)
     last_updated = models.DateTimeField(null=True, blank=True, default=None)
+    extended_from = models.ForeignKey('self', null=True, blank=True, default=None)
 
     title = models.TextField(null=True, blank=True)
     canonical_url = models.TextField(null=True, blank=True)
@@ -67,9 +68,9 @@ class URLMetrics(models.Model):
         for k,v in rd.items():
             for fk, fv in URLMetrics.flag_map.items():
                 if fv[0] == k:
-                    print k, v, fk, fv
+                    # print k, v, fk, fv
                     attr = fk.lower().replace(' ', '_')
-                    print attr
+                    # print attr
                     # val = 0 if val '0' else val
                     setattr(self, attr, v)
                     break
@@ -199,6 +200,7 @@ class ProjectMetrics(models.Model):
     project = models.ForeignKey(UserProject)
     urlmetrics = models.ForeignKey(URLMetrics)
     is_checked = models.BooleanField(default=False)
+    is_extension = models.BooleanField(default=False)
     
 # Uploaded project files
 class UploadedFile(models.Model):

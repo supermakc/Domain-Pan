@@ -73,22 +73,38 @@ def check_moz_domain(m, cols, wait_time):
     params.append(('Cols', cols))
     try:
         r = requests.get(AdminSetting.get_moz_api_url()+'url-metrics/'+m.query_url, params=params)
-        print r.url
-        print r.status_code
+        # print r.url
+        # print r.status_code
         rtext = r.text
-        print rtext
+        # print rtext
         if r.status_code == 200:
             rd = json.loads(rtext)
             m.store_result(rd)
             m.last_updated = timezone.now()
             m.save()
         r.close()
-        print 'Done with %s, waiting...' % c
+        print 'Done with %s, waiting (new)...' % m.query_url
         time.sleep(wait_time)
     except Exception as e:
         lock.release()
         raise
     lock.release()
+
+def get_extensions(urlmetrics):
+    ex_prefixes = ['www.']
+    extensions = []
+    for ex in ex_prefixes:
+        if urlmetrics.query_url.startswith(ex):
+            continue
+        extension_url = ex+urlmetrics.query_url
+        try:
+            exu = URLMetrics.objects.get(query_url=extension_url)
+        except URLMetrics.DoesNotExist:
+            exu = URLMetrics(query_url=extension_url)
+        exu.extended_from = urlmetrics
+        exu.save()
+        extensions.append(exu)
+    return extensions
 
 @app.task(ignore_result=True)
 def update_project_metrics(project_id):
@@ -109,11 +125,27 @@ def update_project_metrics(project_id):
     pmetrics = ProjectMetrics.objects.filter(project=p, is_checked=False)
     for pm in pmetrics:
         with transaction.atomic():
-            if pm.urlmetrics.is_uptodate():
-                pm.is_checked = True
-                pm.save()
-                continue
-            check_moz_domain(pm.urlmetrics, cols, wait_time)
+            if not pm.urlmetrics.is_uptodate():
+                check_moz_domain(pm.urlmetrics, cols, wait_time)
+            pm.is_checked = True
+            pm.save()
+            if not pm.is_extension and pm.urlmetrics.mozrank_10 >= 1.0:
+                extensions = get_extensions(pm.urlmetrics)
+                print 'Getting extensions (%d)' % len(extensions)
+                for ex in extensions:
+                    print '  %s' % ex.query_url
+                    try:
+                        newpm = ProjectMetrics.objects.get(project=p, urlmetrics=ex)
+                    except ProjectMetrics.DoesNotExist:
+                        newpm = ProjectMetrics(project=p, urlmetrics=ex, is_checked=True, is_extension=True)
+                    if not ex.is_uptodate():
+                        print '  Checking extension: %s' % ex.query_url
+                        check_moz_domain(ex, cols, wait_time)
+                    else:
+                        print '  Extension already checked: %s' % ex.query_url
+                    newpm.is_checked = True
+                    newpm.save()
+                
             pm.is_checked=True
             pm.save()
     p.update_state()
@@ -327,8 +359,6 @@ def check_project_domains(project_id):
             if len(domain_list) == 0:
                 # project.state = u'completed'
                 project.update_state(save=False)
-                project.updated = timezone.now()
-                project.completed_datetime = timezone.now()
                 project.save()
 
                 if project.state == 'measuring':
@@ -408,7 +438,8 @@ def check_project_domains(project_id):
                                     um = URLMetrics.objects.get(query_url=d.domain)
                                 except URLMetrics.DoesNotExist:
                                     um = URLMetrics(query_url=d.domain)
-                                pm = ProjectMetrics(project=project, urlmetrics=um, is_checked=False)
+                                    um.save()
+                                pm = ProjectMetrics(project=project, urlmetrics=um, is_checked=False, is_extension=False)
                                 pm.save()
                             break
 

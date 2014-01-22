@@ -20,11 +20,18 @@ class Command(BaseCommand):
         dup_removed = 0
         with transaction.atomic():
             for p in UserProject.objects.all():
-                for pm in ProjectMetrics.objects.filter(project=p):
+                for pm in ProjectMetrics.objects.filter(project=p, is_extension=False):
                     pm.delete()
 
+                for pm in ProjectMetrics.objects.filter(project=p, is_extension=True):
+                    if pm.urlmetrics.is_uptodate():
+                        pm_checked += 1
+                        pm.is_checked = True
+                    else:
+                        pm.is_checked = False
+
                 for pd in p.projectdomain_set.filter(state=u'available'):
-                    ums = URLMetrics.objects.filter(query_url=pd.domain).order_by('-last_updated')
+                    ums = URLMetrics.objects.filter(query_url=pd.domain).order_by(u'-last_updated')
                     if len(ums) == 0:
                         um = URLMetrics(query_url=pd.domain)
                         um.save()
