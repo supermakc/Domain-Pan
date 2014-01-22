@@ -18,7 +18,13 @@
       <div class="container">
         <h1>Know the web.</h1>
         <p>Want to know about a specific domain?  Does it get traffic?  Who visits it?  Is it available and how much does it cost? <b>Get started now.</b></p>
-        <p><a class="btn btn-primary btn-lg" role="button" data-toggle="modal" data-target="#register">Sign up</a></p>
+        <p>
+          {% if allow_new_registrations %}
+            <a class="btn btn-primary btn-lg" role="button" data-toggle="modal" data-target="#register">Sign up</a>
+          {% else %}
+            <b>Sorry, new registrations are currently disabled.  Please try again later.</b>
+          {% endif %}
+        </p>
       </div>
     </div>
 

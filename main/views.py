@@ -196,7 +196,7 @@ def index(request):
                 else:
                     excluded_domains.add(domain)
             logger.debug('Excluded (%d) domains: [%s]' % (len(excluded_domains), ', '.join(excluded_domains)))
-    return render(request, 'main/index.html', {'domain_list' : sorted(domain_list), 'form' : URLFileForm(request.POST), 'urlc' : urlc, 'excluded_domains': excluded_domains,})
+    return render(request, 'main/index.html', {'domain_list' : sorted(domain_list), 'form' : URLFileForm(request.POST), 'urlc' : urlc, 'excluded_domains': excluded_domains, 'allow_new_registrations' : AdminSetting.get_value('allow_new_registrations'),})
 
 # TODO: Should properly use CSRF tokens for this
 @csrf_exempt
@@ -451,6 +451,9 @@ def update_admin(request):
     return redirect('admin_settings')
 
 def register_user(request):
+    if not AdminSetting.get_value('allow_new_registrations'):
+        return redirect('index')
+
     if request.method != 'POST':
         return redirect('index')
 

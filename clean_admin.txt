@@ -32,3 +32,4 @@ test_moz_api_wait_time	21	integer
 
 use_live_moz_api	false	boolean	
 
+allow_new_registrations	true	boolean	
