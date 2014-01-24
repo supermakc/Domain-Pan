@@ -6,7 +6,7 @@ live_api_wait_time	30	integer
 live_api_urls_per_request	20	integer	
 
 sandbox_api_url	https://api.sandbox.namecheap.com/xml.response	string	
-sandbox_api_key	NAMECHEAP_API_KEY	string	
+sandbox_api_key	SANDBOX_HEX_APIKEY	string	
 sandbox_api_user	username	string	
 sandbox_api_username	username	string	
 sandbox_api_wait_time	5	integer	
