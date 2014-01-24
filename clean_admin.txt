@@ -21,12 +21,12 @@ admin_address	username@domain.com	string
 server_address	http://domain.com/	string	
 
 live_moz_api_url	http://lsapi.seomoz.com/linkscape/	string	
-live_moz_api_access_id	moz-username	string	
+live_moz_api_access_id	moz_user	string	
 live_moz_api_secret_key	MOZ_API_KEY	string
 live_moz_api_wait_time	21	integer	
 
 test_moz_api_url	http://lsapi.seomoz.com/linkscape/	string	
-test_moz_api_access_id	moz-username	string	
+test_moz_api_access_id	moz_user	string	
 test_moz_api_secret_key	MOZ_API_KEY	string	
 test_moz_api_wait_time	21	integer	
 
