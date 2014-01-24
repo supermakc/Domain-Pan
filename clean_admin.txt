@@ -1,5 +1,5 @@
 live_api_url	https://api.namecheap.com/xml.response	string	
-live_api_key	NAMECHEAP_API_KEY	string	
+live_api_key	HEX_APIKEY	string	
 live_api_user	user	string	
 live_api_username	user	string	
 live_api_wait_time	30	integer	
