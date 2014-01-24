@@ -18,7 +18,7 @@ use_live_api	false	boolean
 
 noreply_address	noreply@domain.com	string	
 admin_address	sandbox_user@domain.com	string	
-server_address	http://domain.com/	string	
+server_address	http://dc.domain.com/	string	
 
 live_moz_api_url	http://lsapi.seomoz.com/linkscape/	string	
 live_moz_api_access_id	moz_user	string	
