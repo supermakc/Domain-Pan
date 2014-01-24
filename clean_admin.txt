@@ -7,8 +7,8 @@ live_api_urls_per_request	20	integer
 
 sandbox_api_url	https://api.sandbox.namecheap.com/xml.response	string	
 sandbox_api_key	SANDBOX_HEX_APIKEY	string	
-sandbox_api_user	username	string	
-sandbox_api_username	username	string	
+sandbox_api_user	sandbox_user	string	
+sandbox_api_username	sandbox_user	string	
 sandbox_api_wait_time	5	integer	
 sandbox_api_urls_per_request	5	integer	
 
@@ -17,7 +17,7 @@ client_ip	127.0.0.1	string
 use_live_api	false	boolean	
 
 noreply_address	noreply@domain.com	string	
-admin_address	username@domain.com	string	
+admin_address	sandbox_user@domain.com	string	
 server_address	http://domain.com/	string	
 
 live_moz_api_url	http://lsapi.seomoz.com/linkscape/	string	
