@@ -28,10 +28,10 @@ app.conf.update(
             'schedule' : crontab(minute='*/5'),
         },
         'moz_api' : {
-            'task' : 'main.tasks.update_domain_metrics',
+            'task' : 'main.tasks.update_metrics',
             'schedule' : crontab(minute='*/5'),
         },
-        'moz_api_update' : {
+        'check_moz_updatetime' : {
             'task' : 'main.tasks.check_moz_update',
             'schedule' : crontab(hour='0'),
         },

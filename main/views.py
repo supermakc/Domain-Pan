@@ -561,7 +561,7 @@ def manual_update_metrics(request):
     if not request.user.is_authenticated() or not request.user.is_superuser:
         return redirect('index')
 
-    update_domain_metrics.delay()
+    update_metrics.delay()
     request.session['profile_message'] = 'Manual URL metrics update initiated.'
     request.session['profile_messagetype'] = 'success'
 

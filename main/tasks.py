@@ -1,6 +1,6 @@
 from __future__ import absolute_import
+import sys, os, copy, time, logging, json, tempfile, sqlite3, traceback, datetime
 from lxml import etree
-import sys, os, copy, time, logging, json, tempfile, sqlite3, traceback
 
 from django.db import transaction
 from django.conf import settings
@@ -13,11 +13,8 @@ from django.core.cache import cache
 from domain_checker.celery import app
 from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics, MozLastUpdate, ProjectMetrics
 
-import requests, lockfile, datetime
+import requests, lockfile
 
-NAMECHEAP_LOCK_ID = 'namecheap-lock'
-
-# TODO: Deal with stale locks
 class NamecheapLock():
     def __init__(self):
         self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), u'namecheap'))
@@ -106,6 +103,23 @@ def get_extensions(urlmetrics):
         extensions.append(exu)
     return extensions
 
+def associate_project_metrics(project):
+    for pd in project.projectdomain_set:
+        metric_associated = False
+        for um in project.urlmetrics:
+            if um.urlmetrics.query_url == pd.domain:
+                metric_associated = True
+                break
+        if not metric_associated:
+            newum = None
+            try:
+                newum = URLMetrics.objects.get(query_url=pd.domain)
+            except URLMetrics.DoesNotExist:
+                newum = URLMetrics(query_url=query_url.pd_domain)
+                newum.save()
+            pm = ProjectMetrics(project=project, urlmetrics=newum, is_checked=False, is_extension=False)
+            pm.save()
+
 @app.task(ignore_result=True)
 def update_project_metrics(project_id):
     p = UserProject.objects.get(id=project_id)
@@ -122,27 +136,26 @@ def update_project_metrics(project_id):
         'Page Authority',
         'Domain Authority'])
     wait_time = AdminSetting.get_moz_api_wait_time()
+    associate_project_metrics(p)
     pmetrics = ProjectMetrics.objects.filter(project=p, is_checked=False)
     for pm in pmetrics:
         with transaction.atomic():
             if not pm.urlmetrics.is_uptodate():
                 check_moz_domain(pm.urlmetrics, cols, wait_time)
-            pm.is_checked = True
-            pm.save()
             if not pm.is_extension and pm.urlmetrics.mozrank_10 >= 1.0:
                 extensions = get_extensions(pm.urlmetrics)
-                print 'Getting extensions (%d)' % len(extensions)
+                print u'Getting extensions (%d)' % len(extensions)
                 for ex in extensions:
-                    print '  %s' % ex.query_url
+                    print u'  %s' % ex.query_url
                     try:
                         newpm = ProjectMetrics.objects.get(project=p, urlmetrics=ex)
                     except ProjectMetrics.DoesNotExist:
                         newpm = ProjectMetrics(project=p, urlmetrics=ex, is_checked=True, is_extension=True)
                     if not ex.is_uptodate():
-                        print '  Checking extension: %s' % ex.query_url
+                        print u'  Checking extension: %s' % ex.query_url
                         check_moz_domain(ex, cols, wait_time)
                     else:
-                        print '  Extension already checked: %s' % ex.query_url
+                        print u'  Extension already checked: %s' % ex.query_url
                     newpm.is_checked = True
                     newpm.save()
                 
@@ -153,87 +166,11 @@ def update_project_metrics(project_id):
         
 
 @app.task(ignore_result=True)
-def update_domain_metrics():
+def update_metrics():
     with transaction.atomic():
         for p in UserProject.objects.all():
-            if len(p.projectmetrics_set.filter(is_checked=False)) > 0:
+            if p.projectmetrics_set.filter(is_checked=False).count() > 0:
                 update_project_metrics.delay(p.id)
-
-@app.task(ignore_result=True)
-def update_domain_metrics_old():
-    lock = MozAPILock()
-    try:
-        lock.acquire(0)
-    except lockfile.AlreadyLocked:
-        # update already in progress, no specific project specified, ignore
-        return
-
-    try:
-        # find all domains in need of updating        
-        checkables = set()
-        for pd in ProjectDomain.objects.filter(state__in=['available'], url_metrics=None):
-            try:
-                m = URLMetrics.objects.get(query_url=pd.domain)
-                if m.is_uptodate():
-                    pd.url_metrics = m
-                    pd.save()
-                else:
-                    checkables.add(pd.domain)
-            except URLMetrics.DoesNotExist:
-                checkables.add(pd.domain)
-        print 'Total number of domains to check: %d' % len(checkables)
-        # Gather login details
-        # Set columns to gather (currently all 'free' columns)
-        bf = URLMetrics.create_cols_bitflag([
-            'Title',
-            'Canonical URL',
-            'External Links',
-            'Links',
-            'MozRank 10', 
-            'MozRank Raw',
-            'Subdomain MozRank 10',
-            'Subdomain MozRank Raw',
-            'HTTP Status Code',
-            'Page Authority',
-            'Domain Authority'])
-        # use MozAPI to update them
-        wait_time = AdminSetting.get_moz_api_wait_time()
-        limit = int((60.0*60/wait_time)*0.9)
-
-        for i, c in enumerate(checkables):
-            print i, c
-            params = AdminSetting.get_moz_params()
-            params.append(('Cols', bf))
-            r = requests.get(AdminSetting.get_moz_api_url()+'url-metrics/'+c, params=params)
-            print r.url
-            print r.status_code
-            rtext = r.text
-            print rtext
-            if r.status_code == 200:
-                rd = json.loads(rtext)
-                try:
-                    mm = URLMetrics.objects.get(query_url=c)
-                except:
-                    mm = URLMetrics()
-                    mm.query_url = c
-                mm.store_result(rd)
-                mm.last_updated = timezone.now()
-                mm.save()
-                for pd in ProjectDomain.objects.filter(domain=c):
-                    pd.url_metrics = mm
-                    pd.save()
-                for mp in UserProject.objects.filter(state='measuring'):
-                    mp.update_state()
-            r.close()
-            print 'Done with %s, waiting...' % c
-            time.sleep(wait_time)
-            if i >= limit:
-                break
-    except Exception as e:
-        lock.release()
-        raise
-
-    lock.release()
 
 @app.task(ignore_result=True)
 def check_project_tasks():
