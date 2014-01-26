@@ -2,17 +2,6 @@
 
 {% block title %}Domain Checker{% endblock %}
 {% block content %}
-    <div class="container">
-      {% if domain_list|length > 0 %}
-        <p>A total of {{urlc}} URL(s) were processed.  To upload another file <a href="#upload_box">click here</a>.</p>
-        <p>{{domain_list|length}} unique domain(s) were found [<b>Note:</b> {{excluded_domains|length}} domain(s) were <a href="javascript:list_exclusions()">excluded</a>]:</p>
-        <ol class="domainlist">
-        {% for domain in domain_list %}
-          <li>{{domain}}<br /></li>
-        {% endfor %}
-        </ol>
-      {% endif %}
-    </div>
 
     <div class="jumbotron">
       <div class="container">

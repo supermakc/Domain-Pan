@@ -85,7 +85,7 @@ def is_project_task_active(project, task_list):
     """
     Returns whether there are any tasks currently running for the given project.
 
-    .. note:: Project tasks associations are not currently used or consistently implemented.
+    .. note:: Project tasks associations are not currently consistently implemented or used.
     """
     pts = ProjectTask.objects.filter(project_id=project.id)
     task_list_ids = [t['id'] for t in task_list]
