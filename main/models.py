@@ -1,3 +1,9 @@
+"""
+Domain checker model definitions for the main module.
+
+.. moduleauthor:: Chris Davoren <cdavoren@gmail.com>
+"""
+
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.db import models, transaction
