@@ -172,6 +172,13 @@ class PreservedDomain(models.Model):
     domain = models.CharField(max_length=MAX_DOMAIN_LENGTH)
     """Domain name"""
 
+class ExtensionPrefix(models.Model):
+    """
+    Prefix that is added to an available domain if it meets a specific URl metrics threshold (e.g. www).
+    """
+    prefix = models.CharField(max_length=MAX_DOMAIN_LENGTH)
+    """Prefix string (omitting the trailing period)"""
+
 class UserProject(models.Model):
     """
     A project uploaded by a user.
@@ -265,13 +272,13 @@ class UserProject(models.Model):
         """
         Returns whether all this project's domains have been availability checked.
         """
-        return self.projectdomain_set.filter(is_checked=False)).count() == 0
+        return self.projectdomain_set.filter(is_checked=False).count() == 0
 
     def all_measured(self):
         """
         Returns whether all applicable domains for this project have had their metrics collected.
         """
-        return self.projectmetrics_set.filter(is_checked=False)).count() == 0
+        return self.projectmetrics_set.filter(is_checked=False).count() == 0
 
     def update_state(self, save=True):
         """

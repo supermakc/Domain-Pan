@@ -16,8 +16,8 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from main.forms import URLFileForm
-from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain, ProjectTask, AdminSetting
-from main.tasks import check_project_domains, update_tlds, update_domain_metrics
+from main.models import TLD, ExcludedDomain, UserProject, UploadedFile, ProjectDomain, PreservedDomain, ProjectTask, AdminSetting, ExtensionPrefix, ProjectMetrics
+from main.tasks import check_project_domains, update_tlds, update_metrics
 
 import os, logging, re, json, string, random
 from urlparse import urlparse
@@ -109,7 +109,7 @@ def deep_delete_project(project):
     for pd in project_domains:
         pd.delete()
 
-    for pm in ProjectMetrics(project=project):
+    for pm in ProjectMetrics.objects.filter(project=project):
         pm.delete()
 
     project.delete()
@@ -468,7 +468,7 @@ def update_admin(request):
     exclusions = request.POST['exclusions']
     preserved = request.POST['preserved']
 
-    # Clear old exclusion/preserved domains (will be parsed from scratch)
+    # Clear old exclusion/preserved/extension domains (will be parsed from scratch)
     ExcludedDomain.objects.all().delete()
     PreservedDomain.objects.all().delete()
 
@@ -490,6 +490,19 @@ def update_admin(request):
 
     # Only update central administration settings if the user is recorded as an administrator (not just staff)
     if request.user.is_superuser:
+
+        # Clear old extension prefixes
+        extensions = request.POST['extensions']
+        ExtensionPrefix.objects.all().delete()
+
+        # Parse text area of extension prefixes (one on each line)
+        for x in extensions.split('\n'):
+            x = x.strip()
+            if len(x) == 0:
+                continue
+            ep = ExtensionPrefix(prefix=x)
+            ep.save()
+
         # Note that the field names are used to determine the AdminSetting key
         ads = AdminSetting.objects.all()
 
@@ -697,6 +710,7 @@ def admin_settings(request):
     admin = {}
     exclusions = '\n'.join([e.domain for e in ExcludedDomain.objects.all()])
     preserved = '\n'.join([p.domain for p in PreservedDomain.objects.all()])
+    extensions = '\n'.join([x.prefix for x in ExtensionPrefix.objects.all()])
     for ads in AdminSetting.objects.all():
         admin[ads.key] = ads.value
 
@@ -712,5 +726,6 @@ def admin_settings(request):
             'profile_messagetype' : profile_messagetype, 
             'exclusions' : exclusions, 
             'preserved' : preserved,
+            'extensions' : extensions,
             'staff' : staff,
             'admin' : admin})

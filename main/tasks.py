@@ -17,7 +17,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from domain_checker.celery import app
-from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics, MozLastUpdate, ProjectMetrics
+from main.models import ProjectDomain, UserProject, UploadedFile, TLD, AdminSetting, ProjectTask, URLMetrics, MozLastUpdate, ProjectMetrics, ExtensionPrefix
 
 import requests, lockfile
 
@@ -133,7 +133,8 @@ def get_extensions(urlmetrics):
     """
     Returns a list of URLMetrics that represent extensions (i.e. addition of 'www.') to the given URLMetrics.
     """
-    ex_prefixes = ['www.']
+    # ex_prefixes = ['www.']
+    ex_prefixes = [x.prefix+'.' for x in ExtensionPrefix.objects.all()]
     extensions = []
     for ex in ex_prefixes:
         if urlmetrics.query_url.startswith(ex):
@@ -157,10 +158,10 @@ def associate_project_metrics(project):
     Args:
       project (UserProject): The project to check.
     """
-    for pd in project.projectdomain_set:
+    for pd in project.projectdomain_set.all():
         metric_associated = False
-        for um in project.urlmetrics:
-            if um.urlmetrics.query_url == pd.domain:
+        for um in project.urlmetrics.all():
+            if um.query_url == pd.domain:
                 metric_associated = True
                 break
         if not metric_associated:
@@ -196,13 +197,14 @@ def update_project_metrics(project_id):
         'Page Authority',
         'Domain Authority'])
     wait_time = AdminSetting.get_moz_api_wait_time()
+    mozrank_extension_threshold = AdminSetting.get_value('mozrank_extension_threshold')
     associate_project_metrics(p)
     pmetrics = ProjectMetrics.objects.filter(project=p, is_checked=False)
     for pm in pmetrics:
         with transaction.atomic():
             if not pm.urlmetrics.is_uptodate():
                 check_moz_domain(pm.urlmetrics, cols, wait_time)
-            if not pm.is_extension and pm.urlmetrics.mozrank_10 >= 1.0:
+            if not pm.is_extension and pm.urlmetrics.mozrank_10 >= mozrank_extension_threshold:
                 extensions = get_extensions(pm.urlmetrics)
                 print u'Getting extensions (%d)' % len(extensions)
                 for ex in extensions:
@@ -377,7 +379,8 @@ def check_project_domains(project_id):
             # Retrieve list of unchecked domains (limited by the set limit of domains per call)
             domain_list = project.projectdomain_set.filter(is_checked=False)[:AdminSetting.get_api_urls_per_request()]
             # If no domains unchecked, progress project to the next stage (usually metrics measuring)
-            if len(domain_list) == 0:
+            if domain_list.count() == 0:
+                print u'No domains found.'
                 project.update_state(save=False)
                 project.save()
 
