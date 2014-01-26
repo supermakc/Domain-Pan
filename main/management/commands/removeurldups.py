@@ -1,3 +1,6 @@
+"""
+Removes duplicate URL metrics entries in the database.
+"""
 from django.core.management.base import BaseCommand, CommandError
 from main.models import UserProject, ProjectDomain, URLMetrics, ProjectMetrics
 

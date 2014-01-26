@@ -1,3 +1,13 @@
+"""
+Imports static data into the database.  This command will not overwrite values that already exist.
+
+Relies on the presence of the following files in the root repository directory:
+    - tld_list.txt (top-level domains)
+    - exclusion_domains.txt (domains to exclude)
+    - clean_admin.txt (initial admin settings)
+
+.. moduleauthor:: Chris Davoren <cdavoren@gmail.com>
+"""
 from django.core.management.base import BaseCommand, CommandError
 from main.models import AdminSetting, TLD, ExcludedDomain
 

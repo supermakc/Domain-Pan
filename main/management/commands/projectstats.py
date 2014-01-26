@@ -1,3 +1,6 @@
+"""
+Prints out metrics statistics on all projects in the database.
+"""
 from django.core.management.base import BaseCommand, CommandError
 from main.models import UserProject, ProjectDomain, URLMetrics
 

@@ -1,3 +1,6 @@
+"""
+Restores any missing project domain/metrics associations.  If any duplicates are found, they are deleted.
+"""
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from main.models import UserProject, ProjectDomain, URLMetrics, ProjectMetrics
