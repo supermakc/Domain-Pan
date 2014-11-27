@@ -34,3 +34,4 @@ use_live_moz_api	false	boolean
 
 allow_new_registrations	true	boolean	
 mozrank_extension_threshold	1.0	float	
+

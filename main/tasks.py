@@ -28,7 +28,7 @@ class NamecheapLock():
     .. note:: Currently implemented as a file lock through the lockfile module.
     """
     def __init__(self):
-        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), u'namecheap'))
+        self.lockfile = lockfile.LockFile(os.path.join(tempfile.gettempdir(), u'namecheap2'))
 
     def acquire(self, timeout=None):
         """
@@ -52,7 +52,7 @@ class MozAPILock(NamecheapLock):
     .. note:: Currently implemented as a file lock with the lockfile module.
     """
     def __init__(self):
-        self.lockfile = lockfile.FileLock(os.path.join(tempfile.gettempdir(), u'mozapi'))
+        self.lockfile = lockfile.LockFile(os.path.join(tempfile.gettempdir(), u'mozapi2'))
 
 def get_task_list():
     """
@@ -106,6 +106,7 @@ def check_moz_domain(m, cols, wait_time):
       wait_time (int): Number of seconds to wait before releasing the API lock after the call has returned.
     """
     lock = MozAPILock()
+    #lock = lockfile.LockFile('/tmp/mozapi2')
     lock.acquire()
     params = AdminSetting.get_moz_params()
     params.append(('Cols', cols))
@@ -169,8 +170,9 @@ def associate_project_metrics(project):
             try:
                 newum = URLMetrics.objects.get(query_url=pd.domain)
             except URLMetrics.DoesNotExist:
-                newum = URLMetrics(query_url=query_url.pd_domain)
+                newum = URLMetrics(query_url=pd.domain)
                 newum.save()
+            #newum = URLMetrics.objects.get_or_create(query_url=pd.domain)
             pm = ProjectMetrics(project=project, urlmetrics=newum, is_checked=False, is_extension=False)
             pm.save()
 
@@ -269,6 +271,8 @@ def update_tlds():
     send_mail(u'Domain Checker - TLD Update', u'The following response was received from the TLD update (using %s):\n\n%s' % (AdminSetting.get_api_url(), rtext), AdminSetting.get_value(u'noreply_address'), [AdminSetting.get_value(u'admin_address')])
 
     parser = etree.XMLParser(encoding=u'utf-8')
+    header_len = len('<?xml version="1.0" encoding="utf-8"?>')
+    rtext = rtext[header_len:]
     rtree = etree.fromstring(rtext, parser=parser)
     rels = rtree.findall(u'./{http://api.namecheap.com/xml.response}CommandResponse/{http://api.namecheap.com/xml.response}Tlds/{http://api.namecheap.com/xml.response}Tld')
 

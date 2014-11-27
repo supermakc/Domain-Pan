@@ -6,5 +6,6 @@ domain_checker/wsgi.py
 domain_checker/settings/*
 !domain_checker/settings/__init__.py
 !domain_checker/settings/defaults.py
-!domain_checker/settings/template.py
+!domain_checker/settings/templ.py
 celerybeat-schedule
+clean_admin.txt

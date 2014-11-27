@@ -48,10 +48,10 @@ class Command(BaseCommand):
         for exd in exl:
             try:
                 ed = ExcludedDomain.objects.get(domain=exd)
-            except ExcludedDomain.DoesNotExit:
+            except ExcludedDomain.DoesNotExist:
                 ed = ExcludedDomain()
                 ed.domain = exd
-                exd.save()
+                ed.save()
                 eic += 1
         self.stdout.write('Excluded domains: Inserted %d row(s) (out of %d listed domains)' % (eic, len(exl)))
 
